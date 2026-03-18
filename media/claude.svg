@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Anthropic brand color background -->
+  <circle cx="64" cy="64" r="64" fill="#CC785C"/>
+  <!-- Anthropic-style "A" mark in white -->
+  <path d="M64 22 L90 94 H79 L73.5 78 H54.5 L49 94 H38 Z M64 40 L71 68 H57 Z"
+        fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,58 @@
+{
+  "name": "claude-tracker",
+  "displayName": "Claude Tracker",
+  "description": "Track your Claude AI usage directly in VS Code",
+  "version": "0.1.0",
+  "publisher": "claude-tracker",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claude-tracker.refresh",
+        "title": "Refresh Usage Data",
+        "category": "Claude Tracker"
+      },
+      {
+        "command": "claude-tracker.openConsole",
+        "title": "Open Claude Usage Page",
+        "category": "Claude Tracker"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Tracker",
+      "properties": {
+        "claudeTracker.plan": {
+          "type": "string",
+          "default": "Claude Pro",
+          "description": "Your Claude plan name (e.g. Claude Pro, Claude Max)"
+        },
+        "claudeTracker.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Claude Tracker in the status bar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}
