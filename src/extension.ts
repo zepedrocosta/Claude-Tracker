@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { UsageProvider, RateLimitError } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
+import { discoverSkills, buildSkillsDashboardHtml } from "./skillsProvider";
 
 let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
@@ -24,6 +25,16 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.Uri.parse("https://claude.ai/settings/usage"),
       ),
     ),
+    vscode.commands.registerCommand("claude-tracker.showSkills", () => {
+      const skills = discoverSkills();
+      const panel = vscode.window.createWebviewPanel(
+        "claudeTrackerSkills",
+        "Installed Skills",
+        vscode.ViewColumn.One,
+        { enableScripts: true },
+      );
+      panel.webview.html = buildSkillsDashboardHtml(skills);
+    }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("claudeTracker")) {
         refreshData();

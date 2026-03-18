@@ -25,6 +25,11 @@
         "command": "claude-tracker.openConsole",
         "title": "Open Claude Usage Page",
         "category": "Claude Tracker"
+      },
+      {
+        "command": "claude-tracker.showSkills",
+        "title": "Show Installed Skills",
+        "category": "Claude Tracker"
       }
     ],
     "configuration": {

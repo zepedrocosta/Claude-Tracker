@@ -2,7 +2,26 @@
   "permissions": {
     "allow": [
       "Bash(python3 -m json.tool)",
-      "Bash(cat ~/.claude/cache/*)"
+      "Bash(cat ~/.claude/cache/*)",
+      "Bash(python /home/josec/.claude/skills/clawd-modifier/scripts/extract_clawd.py)",
+      "Bash(python3 /home/josec/.claude/skills/clawd-modifier/scripts/extract_clawd.py)",
+      "Read(//home/josec/.claude/skills/clawd-modifier/**)",
+      "Bash(python3 scripts/animate_curling.py --duration 3 --fps 4)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -c \"from PIL import Image; print\\(''''PIL ok''''\\)\")",
+      "Bash(python3 -m ensurepip)",
+      "Bash(python3 -m pip install Pillow --quiet)",
+      "Bash(sudo apt-get:*)",
+      "Bash(python3 -m venv /tmp/clawd_gif_env)",
+      "Bash(/tmp/clawd_gif_env/bin/pip install:*)",
+      "Bash(/tmp/clawd_gif_env/bin/python -c \"from PIL import Image; print\\(''''PIL ok''''\\)\")",
+      "Bash(fc-list)"
     ]
   }
 }
