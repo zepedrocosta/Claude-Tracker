@@ -15,6 +15,15 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "icons": {
+      "clawd-icon": {
+        "description": "Clawd mascot icon",
+        "default": {
+          "fontPath": "./media/fonts/clawd-icons.woff2",
+          "fontCharacter": "\\F101"
+        }
+      }
+    },
     "commands": [
       {
         "command": "claude-tracker.refresh",
@@ -49,15 +58,17 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run gen-icons && npm run compile",
+    "gen-icons": "fantasticon",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "fantasticon": "^4.1.0",
     "typescript": "^5.0.0"
   }
 }

@@ -10,7 +10,7 @@ export class StatusBarManager {
       vscode.StatusBarAlignment.Left,
       100,
     );
-    this.statusBarItem.text = "$(sparkle) Claude";
+    this.statusBarItem.text = "$(clawd-icon)";
     this.statusBarItem.color = "#CC785C";
     this.statusBarItem.name = "Claude Tracker";
     this.statusBarItem.command = "claude-tracker.openConsole";

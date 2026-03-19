@@ -1,4 +1,8 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import { exec, execFile } from "child_process";
 import { UsageProvider, RateLimitError } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
 import { discoverSkills, buildSkillsDashboardHtml } from "./skillsProvider";
@@ -33,7 +37,17 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.ViewColumn.One,
         { enableScripts: true },
       );
+      panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "clawd.svg");
       panel.webview.html = buildSkillsDashboardHtml(skills);
+      panel.webview.onDidReceiveMessage((msg) => {
+        if (msg.command === "openSkillsFolder") {
+          const skillsDir = path.join(os.homedir(), ".claude", "skills");
+          if (!fs.existsSync(skillsDir)) {
+            fs.mkdirSync(skillsDir, { recursive: true });
+          }
+          openFolder(skillsDir);
+        }
+      });
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("claudeTracker")) {
@@ -76,6 +90,27 @@ function refreshData(): void {
         console.error("[Claude Tracker] refresh error:", err);
       }
     });
+}
+
+function openFolder(folderPath: string): void {
+  const platform = os.platform();
+  const isWsl = platform === "linux" && os.release().toLowerCase().includes("microsoft");
+
+  if (isWsl) {
+    exec(`wslpath -w "${folderPath}"`, (err, winPath) => {
+      if (err) {
+        vscode.window.showErrorMessage("Failed to resolve Windows path");
+        return;
+      }
+      execFile("explorer.exe", [winPath.trim()]);
+    });
+  } else if (platform === "win32") {
+    execFile("explorer.exe", [folderPath]);
+  } else if (platform === "darwin") {
+    execFile("open", [folderPath]);
+  } else {
+    execFile("xdg-open", [folderPath]);
+  }
 }
 
 export function deactivate(): void {

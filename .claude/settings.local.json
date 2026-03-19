@@ -21,7 +21,8 @@
       "Bash(python3 -m venv /tmp/clawd_gif_env)",
       "Bash(/tmp/clawd_gif_env/bin/pip install:*)",
       "Bash(/tmp/clawd_gif_env/bin/python -c \"from PIL import Image; print\\(''''PIL ok''''\\)\")",
-      "Bash(fc-list)"
+      "Bash(fc-list)",
+      "Bash(npx fantasticon:*)"
     ]
   }
 }

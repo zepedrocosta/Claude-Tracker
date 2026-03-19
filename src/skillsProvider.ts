@@ -105,16 +105,30 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
         content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';" />
   <title>Installed Skills</title>
   <style nonce="${nonce}">
-    :root {
-      --bg: #1e1e2e;
-      --surface: #262637;
-      --surface-hover: #2e2e42;
-      --border: #383850;
-      --text: #cdd6f4;
-      --text-dim: #9399b2;
-      --accent: #cc785c;
-      --accent-dim: rgba(204, 120, 92, 0.15);
-      --header-bg: #1a1a2a;
+    /* Dark theme (default) */
+    body.vscode-dark, body.vscode-high-contrast {
+      --bg: #1a1a1a;
+      --surface: #2a2a2a;
+      --surface-hover: #333333;
+      --border: #3d3d3d;
+      --text: #e8e0d8;
+      --text-dim: #9a918b;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.15);
+      --header-bg: #151515;
+    }
+
+    /* Light theme */
+    body.vscode-light, body.vscode-high-contrast-light {
+      --bg: #faf5f0;
+      --surface: #f0e9e1;
+      --surface-hover: #e8dfd6;
+      --border: #d9cfc5;
+      --text: #3d3029;
+      --text-dim: #7a6e64;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.12);
+      --header-bg: #f5ede5;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -159,6 +173,12 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
       letter-spacing: -0.3px;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     .badge {
       background: var(--accent-dim);
       color: var(--accent);
@@ -166,6 +186,22 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
       border-radius: 20px;
       font-size: 13px;
       font-weight: 500;
+    }
+
+    .open-folder-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .open-folder-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
     }
 
     .search-box {
@@ -296,7 +332,12 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
       <div class="logo">&#9830;</div>
       <h1>Installed Skills</h1>
     </div>
-    <span class="badge">${skills.length} skill${skills.length !== 1 ? "s" : ""}</span>
+    <div class="header-right">
+      <button class="open-folder-btn" id="open-folder" title="Open skills folder in file explorer">
+        &#128194; Open Folder
+      </button>
+      <span class="badge">${skills.length} skill${skills.length !== 1 ? "s" : ""}</span>
+    </div>
   </div>
 
   <div class="search-box">
@@ -319,12 +360,17 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
   </div>
   <div class="no-results" id="no-results">No skills match your filter.</div>
 
-  <div class="footer">Claude Tracker &middot; Skills discovered from ~/.claude/</div>
+  <div class="footer">Claude Tracker &middot; Skills discovered from ~/.claude/skills</div>
 
   <script nonce="${nonce}">
+    const vscodeApi = acquireVsCodeApi();
     const input = document.getElementById('search');
     const tbody = document.getElementById('skills-body');
     const noResults = document.getElementById('no-results');
+
+    document.getElementById('open-folder').addEventListener('click', () => {
+      vscodeApi.postMessage({ command: 'openSkillsFolder' });
+    });
 
     input.addEventListener('input', () => {
       const q = input.value.toLowerCase();
