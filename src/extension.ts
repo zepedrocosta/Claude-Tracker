@@ -6,6 +6,12 @@ import { exec, execFile } from "child_process";
 import { UsageProvider, RateLimitError } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
 import { discoverSkills, buildSkillsDashboardHtml } from "./skillsProvider";
+import {
+  discoverMcpServers,
+  toggleMcpServer,
+  deleteMcpServer,
+  buildMcpDashboardHtml,
+} from "./mcpProvider";
 
 let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
@@ -29,6 +35,55 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.Uri.parse("https://claude.ai/settings/usage"),
       ),
     ),
+    vscode.commands.registerCommand("claude-tracker.showMcp", () => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const servers = discoverMcpServers(workspaceRoot);
+      const panel = vscode.window.createWebviewPanel(
+        "claudeTrackerMcp",
+        "MCP Servers",
+        vscode.ViewColumn.One,
+        { enableScripts: true },
+      );
+      panel.iconPath = vscode.Uri.joinPath(
+        context.extensionUri,
+        "media",
+        "clawd.svg",
+      );
+      panel.webview.html = buildMcpDashboardHtml(servers);
+
+      const refreshPanel = () => {
+        const updated = discoverMcpServers(workspaceRoot);
+        panel.webview.html = buildMcpDashboardHtml(updated);
+      };
+
+      panel.webview.onDidReceiveMessage((msg) => {
+        if (msg.command === "openSettingsFile") {
+          const settingsPath = path.join(os.homedir(), ".claude.json");
+          vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath)).then(
+            (doc) => vscode.window.showTextDocument(doc),
+            () =>
+              vscode.window.showErrorMessage("Could not open ~/.claude.json"),
+          );
+        } else if (msg.command === "toggleServer") {
+          const ok = toggleMcpServer(msg.name, msg.disabled, msg.scope, workspaceRoot);
+          if (ok) {
+            refreshPanel();
+          } else {
+            vscode.window.showErrorMessage(`Failed to toggle "${msg.name}"`);
+          }
+        } else if (msg.command === "deleteServer") {
+          const ok = deleteMcpServer(msg.name, msg.scope, workspaceRoot);
+          if (ok) {
+            refreshPanel();
+            vscode.window.showInformationMessage(
+              `Removed "${msg.name}" from MCP config`,
+            );
+          } else {
+            vscode.window.showErrorMessage(`Failed to delete "${msg.name}"`);
+          }
+        }
+      });
+    }),
     vscode.commands.registerCommand("claude-tracker.showSkills", () => {
       const skills = discoverSkills();
       const panel = vscode.window.createWebviewPanel(
@@ -37,7 +92,11 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.ViewColumn.One,
         { enableScripts: true },
       );
-      panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "clawd.svg");
+      panel.iconPath = vscode.Uri.joinPath(
+        context.extensionUri,
+        "media",
+        "clawd.svg",
+      );
       panel.webview.html = buildSkillsDashboardHtml(skills);
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.command === "openSkillsFolder") {
@@ -92,7 +151,10 @@ function refreshData(): void {
         const plan = config.get<string>("plan", "Claude Pro");
         statusBarManager!.update({
           plan,
-          lastUpdated: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          lastUpdated: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -101,7 +163,8 @@ function refreshData(): void {
 
 function openFolder(folderPath: string): void {
   const platform = os.platform();
-  const isWsl = platform === "linux" && os.release().toLowerCase().includes("microsoft");
+  const isWsl =
+    platform === "linux" && os.release().toLowerCase().includes("microsoft");
 
   if (isWsl) {
     exec(`wslpath -w "${folderPath}"`, (err, winPath) => {

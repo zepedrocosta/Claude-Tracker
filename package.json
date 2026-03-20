@@ -39,6 +39,11 @@
         "command": "claude-tracker.showSkills",
         "title": "Show Installed Skills",
         "category": "Claude Tracker"
+      },
+      {
+        "command": "claude-tracker.showMcp",
+        "title": "Show MCP Servers",
+        "category": "Claude Tracker"
       }
     ],
     "configuration": {

@@ -55,7 +55,9 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
     md.appendMarkdown(`$(warning) ${data.error}\n\n`);
   }
 
-  md.appendMarkdown(`[Manage usage](https://claude.ai/settings/usage) &nbsp;|&nbsp; [$(tools) Installed Skills](command:claude-tracker.showSkills "View installed skills")\n\n`);
+  md.appendMarkdown(
+    `[Manage usage](https://claude.ai/settings/usage) &nbsp;|&nbsp; [$(tools) Installed Skills](command:claude-tracker.showSkills "View installed skills") &nbsp;|&nbsp; [$(server) MCP Servers](command:claude-tracker.showMcp "View MCP servers")\n\n`,
+  );
   md.appendMarkdown(
     `$(clock) Updated at ${data.lastUpdated} &nbsp; [$(refresh)](command:claude-tracker.refresh "Refresh")`,
   );

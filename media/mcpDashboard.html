@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
+  <title>MCP Servers</title>
+  <style nonce="{{NONCE}}">
+    body.vscode-dark, body.vscode-high-contrast {
+      --bg: #1a1a1a;
+      --surface: #2a2a2a;
+      --surface-hover: #333333;
+      --border: #3d3d3d;
+      --text: #e8e0d8;
+      --text-dim: #9a918b;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.15);
+      --header-bg: #151515;
+      --bar-bg: #333;
+      --green: #4caf50;
+      --red: #e55;
+    }
+
+    body.vscode-light, body.vscode-high-contrast-light {
+      --bg: #faf5f0;
+      --surface: #f0e9e1;
+      --surface-hover: #e8dfd6;
+      --border: #d9cfc5;
+      --text: #3d3029;
+      --text-dim: #7a6e64;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.12);
+      --header-bg: #f5ede5;
+      --bar-bg: #d9cfc5;
+      --green: #388e3c;
+      --red: #c62828;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 32px;
+      line-height: 1.6;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .open-folder-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .open-folder-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+
+    /* Progress bars section */
+    .progress-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .progress-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+    }
+
+    .progress-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .progress-value .max {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--bar-bg);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    .progress-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* Search */
+    .search-box {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    /* Table */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      background: var(--header-bg);
+      padding: 12px 20px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-hover); }
+
+    td {
+      padding: 14px 20px;
+      font-size: 13.5px;
+    }
+
+    .name-cell {
+      white-space: nowrap;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .server-icon {
+      color: var(--green);
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    .server-icon.disabled {
+      color: var(--text-dim);
+    }
+
+    .server-name { color: var(--text); }
+
+    .disabled-text {
+      color: var(--text-dim);
+      opacity: 0.6;
+    }
+
+    .command-cell {
+      color: var(--text-dim);
+      max-width: 400px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .source-cell {
+      white-space: nowrap;
+    }
+
+    .source-badge {
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .source-user {
+      background: rgba(100, 181, 246, 0.15);
+      color: #64b5f6;
+    }
+
+    .source-project {
+      background: rgba(129, 199, 132, 0.15);
+      color: #81c784;
+    }
+
+    .source-local {
+      background: rgba(255, 183, 77, 0.15);
+      color: #ffb74d;
+    }
+
+    .actions-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bar-bg);
+      border-radius: 10px;
+      transition: background 0.25s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: var(--text-dim);
+      border-radius: 50%;
+      transition: transform 0.25s, background 0.25s;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background: var(--green);
+    }
+
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(18px);
+      background: #fff;
+    }
+
+    /* Delete button */
+    .delete-btn {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 5px 7px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    .delete-btn:hover {
+      color: var(--red);
+      background: rgba(238, 85, 85, 0.1);
+      border-color: rgba(238, 85, 85, 0.3);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .empty code {
+      background: var(--surface-hover);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .no-results {
+      display: none;
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-dim);
+    }
+
+    /* Confirm dialog overlay */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .confirm-overlay.active {
+      display: flex;
+    }
+
+    .confirm-dialog {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .confirm-dialog h3 {
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .confirm-dialog p {
+      color: var(--text-dim);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .confirm-actions button {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .btn-cancel {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .btn-cancel:hover {
+      background: var(--surface-hover);
+    }
+
+    .btn-delete {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    .btn-delete:hover {
+      opacity: 0.85;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">&#9881;</div>
+      <h1>MCP Servers</h1>
+    </div>
+    <div class="header-right">
+      <button class="open-folder-btn" id="open-settings" title="Open ~/.claude.json">
+        &#128194; Open Settings
+      </button>
+      <span class="badge">{{ENABLED_COUNT}} / {{TOTAL_COUNT}} active</span>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-card">
+      <div class="progress-header">
+        <span class="progress-label">In Config</span>
+        <span class="progress-value">{{TOTAL_COUNT}} <span class="max">/ 30</span></span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="config-bar"></div>
+      </div>
+      <div class="progress-hint">Target: 20 &ndash; 30 servers</div>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-header">
+        <span class="progress-label">Enabled</span>
+        <span class="progress-value">{{ENABLED_COUNT}} <span class="max">/ 10</span></span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="enabled-bar"></div>
+      </div>
+      <div class="progress-hint">Keep under 10 enabled</div>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-header">
+        <span class="progress-label">Active Tools</span>
+        <span class="progress-value">? <span class="max">/ 80</span></span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width: 0%; background: var(--text-dim);"></div>
+      </div>
+      <div class="progress-hint">Requires running servers to count</div>
+    </div>
+  </div>
+
+  <div class="search-box">
+    <span class="search-icon">&#128269;</span>
+    <input type="text" id="search" placeholder="Filter servers..." />
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 200px;">Server</th>
+          <th>Command</th>
+          <th style="width: 90px;">Scope</th>
+          <th style="width: 120px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="servers-body">
+        {{ROWS}}
+      </tbody>
+    </table>
+  </div>
+  <div class="no-results" id="no-results">No servers match your filter.</div>
+
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-dialog">
+      <h3>Delete Server</h3>
+      <p>Remove <strong id="confirm-name"></strong> from configuration? This cannot be undone.</p>
+      <div class="confirm-actions">
+        <button class="btn-cancel" id="confirm-cancel">Cancel</button>
+        <button class="btn-delete" id="confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Claude Tracker &middot; Scopes: User (~/.claude.json) &middot; Local (~/.claude.json per project) &middot; Project (.mcp.json)</div>
+
+  <script nonce="{{NONCE}}">
+    document.getElementById('config-bar').style.width = '{{CONFIG_PCT}}%';
+    document.getElementById('config-bar').style.background = '{{CONFIG_COLOR}}';
+    document.getElementById('enabled-bar').style.width = '{{ENABLED_PCT}}%';
+    document.getElementById('enabled-bar').style.background = '{{ENABLED_COLOR}}';
+
+    const vscodeApi = acquireVsCodeApi();
+    const input = document.getElementById('search');
+    const tbody = document.getElementById('servers-body');
+    const noResults = document.getElementById('no-results');
+    const overlay = document.getElementById('confirm-overlay');
+    const confirmName = document.getElementById('confirm-name');
+    const confirmCancel = document.getElementById('confirm-cancel');
+    const confirmDelete = document.getElementById('confirm-delete');
+
+    let pendingDelete = null;
+
+    document.getElementById('open-settings').addEventListener('click', () => {
+      vscodeApi.postMessage({ command: 'openSettingsFile' });
+    });
+
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      const rows = tbody.querySelectorAll('tr');
+      let visible = 0;
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const show = text.includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      noResults.style.display = visible === 0 ? 'block' : 'none';
+    });
+
+    tbody.addEventListener('change', (e) => {
+      const checkbox = e.target;
+      if (checkbox.tagName !== 'INPUT') return;
+      const name = checkbox.dataset.name;
+      const scope = checkbox.dataset.scope;
+      const disabled = !checkbox.checked;
+      vscodeApi.postMessage({ command: 'toggleServer', name, scope, disabled });
+    });
+
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.delete-btn');
+      if (!btn) return;
+      pendingDelete = { name: btn.dataset.name, scope: btn.dataset.scope };
+      confirmName.textContent = btn.dataset.name;
+      overlay.classList.add('active');
+    });
+
+    confirmCancel.addEventListener('click', () => {
+      overlay.classList.remove('active');
+      pendingDelete = null;
+    });
+
+    confirmDelete.addEventListener('click', () => {
+      if (pendingDelete) {
+        vscodeApi.postMessage({ command: 'deleteServer', name: pendingDelete.name, scope: pendingDelete.scope });
+      }
+      overlay.classList.remove('active');
+      pendingDelete = null;
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+        pendingDelete = null;
+      }
+    });
+  </script>
+</body>
+</html>
