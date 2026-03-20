@@ -7,13 +7,14 @@ export class StatusBarManager {
 
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Left,
+      vscode.StatusBarAlignment.Right,
       100,
     );
     this.statusBarItem.text = "$(clawd-icon)";
     this.statusBarItem.color = "#CC785C";
     this.statusBarItem.name = "Claude Tracker";
     this.statusBarItem.command = "claude-tracker.openConsole";
+    this.statusBarItem.show();
   }
 
   public update(data: ClaudeUsageData): void {

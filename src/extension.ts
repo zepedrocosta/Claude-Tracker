@@ -88,6 +88,13 @@ function refreshData(): void {
         );
       } else {
         console.error("[Claude Tracker] refresh error:", err);
+        const config = vscode.workspace.getConfiguration("claudeTracker");
+        const plan = config.get<string>("plan", "Claude Pro");
+        statusBarManager!.update({
+          plan,
+          lastUpdated: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
 }

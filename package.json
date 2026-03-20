@@ -20,7 +20,7 @@
         "description": "Clawd mascot icon",
         "default": {
           "fontPath": "./media/fonts/clawd-icons.woff2",
-          "fontCharacter": "\\F101"
+          "fontCharacter": "\\E001"
         }
       }
     },
