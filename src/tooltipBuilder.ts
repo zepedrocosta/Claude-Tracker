@@ -21,12 +21,12 @@ function buildBar(percentage: number): string {
     `<rect width="${W}" height="${H}" rx="2" fill="#3c3c3c"/>` +
     `<rect width="${filled}" height="${H}" rx="2" fill="${color}"/>` +
     `</svg>`;
-  return `![](data:image/svg+xml,${encodeURIComponent(svg)})`;
+  return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
 }
 
 function appendLimitRow(md: vscode.MarkdownString, limit: LimitSection): void {
   md.appendMarkdown(`${limit.label} &nbsp;&nbsp; **${limit.percentage}%**\n\n`);
-  md.appendMarkdown(`${buildBar(limit.percentage)}\n\n`);
+  md.appendMarkdown(`<p align="center">${buildBar(limit.percentage)}</p>\n\n`);
   if (limit.subLabel) {
     md.appendMarkdown(`${limit.subLabel}\n\n`);
   }
@@ -58,9 +58,7 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
   md.appendMarkdown(
     `[Manage usage](https://claude.ai/settings/usage) &nbsp;|&nbsp; [$(tools) Installed Skills](command:claude-tracker.showSkills "View installed skills") &nbsp;|&nbsp; [$(server) MCP Servers](command:claude-tracker.showMcp "View MCP servers")\n\n`,
   );
-  md.appendMarkdown(
-    `$(clock) Updated at ${data.lastUpdated} &nbsp; [$(refresh)](command:claude-tracker.refresh "Refresh")`,
-  );
+  md.appendMarkdown(`$(clock) Updated at ${data.lastUpdated}`);
 
   return md;
 }

@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -281,7 +282,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export function buildMcpDashboardHtml(servers: McpServerInfo[]): string {
+export function buildMcpDashboardHtml(servers: McpServerInfo[], webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const nonce = crypto.randomBytes(16).toString("hex");
 
   const totalCount = servers.length;
@@ -332,10 +333,15 @@ export function buildMcpDashboardHtml(servers: McpServerInfo[]): string {
           .join("")
       : `<tr><td colspan="4" class="empty">No MCP servers configured. Run <code>claude mcp add</code> to get started.</td></tr>`;
 
+  const serverIconUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, "media", "icons", "server.svg"),
+  );
   const templatePath = path.join(__dirname, "..", "media", "mcpDashboard.html");
   return fs
     .readFileSync(templatePath, "utf-8")
     .replace(/\{\{NONCE\}\}/g, nonce)
+    .replace(/\{\{CSP_SOURCE\}\}/g, webview.cspSource)
+    .replace(/\{\{SERVER_ICON\}\}/g, serverIconUri.toString())
     .replace(/\{\{ROWS\}\}/g, rows)
     .replace(/\{\{ENABLED_COUNT\}\}/g, String(enabledCount))
     .replace(/\{\{TOTAL_COUNT\}\}/g, String(totalCount))

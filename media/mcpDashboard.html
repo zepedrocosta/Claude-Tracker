@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
+        content="default-src 'none'; img-src {{CSP_SOURCE}}; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
   <title>MCP Servers</title>
   <style nonce="{{NONCE}}">
     body.vscode-dark, body.vscode-high-contrast {
@@ -483,7 +483,7 @@
 <body>
   <div class="header">
     <div class="header-left">
-      <div class="logo">&#9881;</div>
+      <div class="logo"><img src="{{SERVER_ICON}}" width="20" height="20" alt="server" /></div>
       <h1>MCP Servers</h1>
     </div>
     <div class="header-right">

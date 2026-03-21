@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
+        content="default-src 'none'; img-src {{CSP_SOURCE}}; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
   <title>Installed Skills</title>
   <style nonce="{{NONCE}}">
     /* Dark theme (default) */
@@ -231,7 +231,7 @@
 <body>
   <div class="header">
     <div class="header-left">
-      <div class="logo">&#9830;</div>
+      <div class="logo"><img src="{{TOOLS_ICON}}" width="20" height="20" alt="tools" /></div>
       <h1>Installed Skills</h1>
     </div>
     <div class="header-right">

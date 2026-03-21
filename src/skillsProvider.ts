@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -82,7 +83,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
+export function buildSkillsDashboardHtml(skills: SkillInfo[], webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const nonce = crypto.randomBytes(16).toString("hex");
 
   const rows = skills.length > 0
@@ -97,10 +98,15 @@ export function buildSkillsDashboardHtml(skills: SkillInfo[]): string {
     : `<tr><td colspan="2" class="empty">No skills found in ~/.claude/</td></tr>`;
 
   const skillsBadge = `${skills.length} skill${skills.length !== 1 ? "s" : ""}`;
+  const toolsIconUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, "media", "icons", "tools.svg"),
+  );
   const templatePath = path.join(__dirname, "..", "media", "skillsDashboard.html");
   return fs
     .readFileSync(templatePath, "utf-8")
     .replace(/\{\{NONCE\}\}/g, nonce)
+    .replace(/\{\{CSP_SOURCE\}\}/g, webview.cspSource)
+    .replace(/\{\{TOOLS_ICON\}\}/g, toolsIconUri.toString())
     .replace(/\{\{ROWS\}\}/g, rows)
     .replace(/\{\{SKILLS_BADGE\}\}/g, skillsBadge);
 }

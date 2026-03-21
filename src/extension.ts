@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { exec, execFile } from "child_process";
-import { UsageProvider, RateLimitError } from "./usageProvider";
+import { UsageProvider } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
 import { discoverSkills, buildSkillsDashboardHtml } from "./skillsProvider";
 import {
@@ -15,21 +15,17 @@ import {
 
 let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
-let lastRefreshTime = 0;
-const COOLDOWN_DEFAULT = 60_000;
-const COOLDOWN_RATE_LIMIT = 600_000;
-let cooldown = COOLDOWN_DEFAULT;
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+const AUTO_REFRESH_INTERVAL = 5 * 60_000;
 
 export function activate(context: vscode.ExtensionContext): void {
   usageProvider = new UsageProvider();
   statusBarManager = new StatusBarManager();
 
   refreshData();
+  refreshTimer = setInterval(refreshData, AUTO_REFRESH_INTERVAL);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("claude-tracker.refresh", () =>
-      refreshData(),
-    ),
     vscode.commands.registerCommand("claude-tracker.openConsole", () =>
       vscode.env.openExternal(
         vscode.Uri.parse("https://claude.ai/settings/usage"),
@@ -42,18 +38,18 @@ export function activate(context: vscode.ExtensionContext): void {
         "claudeTrackerMcp",
         "MCP Servers",
         vscode.ViewColumn.One,
-        { enableScripts: true },
+        { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")] },
       );
       panel.iconPath = vscode.Uri.joinPath(
         context.extensionUri,
         "media",
         "clawd.svg",
       );
-      panel.webview.html = buildMcpDashboardHtml(servers);
+      panel.webview.html = buildMcpDashboardHtml(servers, panel.webview, context.extensionUri);
 
       const refreshPanel = () => {
         const updated = discoverMcpServers(workspaceRoot);
-        panel.webview.html = buildMcpDashboardHtml(updated);
+        panel.webview.html = buildMcpDashboardHtml(updated, panel.webview, context.extensionUri);
       };
 
       panel.webview.onDidReceiveMessage((msg) => {
@@ -90,14 +86,14 @@ export function activate(context: vscode.ExtensionContext): void {
         "claudeTrackerSkills",
         "Installed Skills",
         vscode.ViewColumn.One,
-        { enableScripts: true },
+        { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")] },
       );
       panel.iconPath = vscode.Uri.joinPath(
         context.extensionUri,
         "media",
         "clawd.svg",
       );
-      panel.webview.html = buildSkillsDashboardHtml(skills);
+      panel.webview.html = buildSkillsDashboardHtml(skills, panel.webview, context.extensionUri);
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.command === "openSkillsFolder") {
           const skillsDir = path.join(os.homedir(), ".claude", "skills");
@@ -113,7 +109,14 @@ export function activate(context: vscode.ExtensionContext): void {
         refreshData();
       }
     }),
-    { dispose: () => statusBarManager?.dispose() },
+    {
+      dispose: () => {
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+        }
+        statusBarManager?.dispose();
+      },
+    },
   );
 }
 
@@ -121,43 +124,23 @@ function refreshData(): void {
   if (!usageProvider || !statusBarManager) {
     return;
   }
-  const now = Date.now();
-  if (lastRefreshTime > 0 && now - lastRefreshTime < cooldown) {
-    const secsLeft = Math.ceil((cooldown - (now - lastRefreshTime)) / 1000);
-    const msg =
-      cooldown === COOLDOWN_RATE_LIMIT
-        ? `$(warning) Rate limited — refresh available in ${Math.ceil(secsLeft / 60)}m`
-        : `$(clock) Refresh available in ${secsLeft}s`;
-    vscode.window.setStatusBarMessage(msg, 3000);
-    return;
-  }
-  lastRefreshTime = now;
   usageProvider
     .getUsageData()
     .then((data) => {
-      cooldown = COOLDOWN_DEFAULT;
       statusBarManager!.update(data);
     })
     .catch((err) => {
-      if (err instanceof RateLimitError) {
-        cooldown = COOLDOWN_RATE_LIMIT;
-        vscode.window.setStatusBarMessage(
-          "$(warning) Rate limited — refresh blocked for 10 minutes",
-          5000,
-        );
-      } else {
-        console.error("[Claude Tracker] refresh error:", err);
-        const config = vscode.workspace.getConfiguration("claudeTracker");
-        const plan = config.get<string>("plan", "Claude Pro");
-        statusBarManager!.update({
-          plan,
-          lastUpdated: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      console.error("[Claude Tracker] refresh error:", err);
+      const config = vscode.workspace.getConfiguration("claudeTracker");
+      const plan = config.get<string>("plan", "Claude Pro");
+      statusBarManager!.update({
+        plan,
+        lastUpdated: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 }
 
