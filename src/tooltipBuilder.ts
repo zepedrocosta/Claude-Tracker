@@ -37,28 +37,38 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
   md.isTrusted = true;
   md.supportHtml = true;
 
-  md.appendMarkdown(`**${data.plan} Usage**\n\n`);
-
-  if (data.sessionLimit) {
-    appendLimitRow(md, data.sessionLimit);
-  }
-
-  if (data.weeklyLimit) {
-    appendLimitRow(md, data.weeklyLimit);
-  }
-
-  if (data.extraUsage) {
-    appendLimitRow(md, data.extraUsage);
-  }
-
   if (data.error) {
     md.appendMarkdown(`$(warning) ${data.error}\n\n`);
+  } else {
+    md.appendMarkdown(`**${data.plan} Usage**\n\n`);
+
+    if (data.sessionLimit) {
+      appendLimitRow(md, data.sessionLimit);
+    }
+
+    if (data.weeklyLimit) {
+      appendLimitRow(md, data.weeklyLimit);
+    }
+
+    if (data.extraUsage) {
+      appendLimitRow(md, data.extraUsage);
+    }
+
+    md.appendMarkdown(`$(clock) Updated at ${data.lastUpdated}\n\n`);
   }
 
+  if (data.modelInfo) {
+    md.appendMarkdown(`---\n\n`);
+    const effort =
+      data.modelInfo.effortLevel.charAt(0).toUpperCase() +
+      data.modelInfo.effortLevel.slice(1);
+    md.appendMarkdown(`$(dashboard) Effort: **${effort}**\n\n`);
+  }
+
+  md.appendMarkdown(`---\n\n`);
   md.appendMarkdown(
     `[Manage usage](https://claude.ai/settings/usage) &nbsp;|&nbsp; [$(tools) Installed Skills](command:claude-tracker.showSkills "View installed skills") &nbsp;|&nbsp; [$(server) MCP Servers](command:claude-tracker.showMcp "View MCP servers")\n\n`,
   );
-  md.appendMarkdown(`$(clock) Updated at ${data.lastUpdated}`);
 
   return md;
 }

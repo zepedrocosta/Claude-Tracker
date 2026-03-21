@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { ClaudeUsageData, LimitSection } from "./types";
+import { ClaudeUsageData, LimitSection, ModelInfo } from "./types";
 
 interface ClaudeCredentials {
   accessToken: string;
@@ -208,6 +208,44 @@ export class UsageProvider {
     return result;
   }
 
+  // ─── Claude Code settings ──────────────────────────────────────────────────
+
+  private readModelInfo(): ModelInfo {
+    const defaults: ModelInfo = {
+      effortLevel: "standard",
+    };
+
+    // Read effort level from settings files
+    const settingsPaths = [
+      path.join(os.homedir(), ".claude", "settings.json"),
+      path.join(os.homedir(), ".claude", "settings.local.json"),
+    ];
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+      settingsPaths.push(
+        path.join(workspaceRoot, ".claude", "settings.json"),
+        path.join(workspaceRoot, ".claude", "settings.local.json"),
+      );
+    }
+
+    for (const settingsPath of settingsPaths) {
+      try {
+        const raw = fs.readFileSync(settingsPath, "utf-8");
+        const data = JSON.parse(raw) as Record<string, unknown>;
+
+        if (typeof data["effortLevel"] === "string") {
+          defaults.effortLevel = data["effortLevel"];
+        }
+      } catch {
+        // file doesn't exist or isn't valid JSON — skip
+      }
+    }
+
+    return defaults;
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   public async getUsageData(): Promise<ClaudeUsageData> {
@@ -219,10 +257,12 @@ export class UsageProvider {
     });
 
     const creds = this.readCredentials();
+    const modelInfo = this.readModelInfo();
 
     if (!creds) {
       return {
         plan,
+        modelInfo,
         lastUpdated: now,
         error:
           "Claude CLI credentials not found. Make sure Claude Code is installed and you have logged in.",
@@ -232,6 +272,7 @@ export class UsageProvider {
     if (creds.expiresAt > 0 && Date.now() > creds.expiresAt) {
       return {
         plan,
+        modelInfo,
         lastUpdated: now,
         error:
           'Claude CLI session has expired. Run "claude" in a terminal to refresh it.',
@@ -240,10 +281,11 @@ export class UsageProvider {
 
     try {
       const apiData = await this.fetchApiData(creds);
-      return { plan, ...apiData, lastUpdated: now };
+      return { plan, modelInfo, ...apiData, lastUpdated: now };
     } catch (err) {
       return {
         plan,
+        modelInfo,
         error: err instanceof Error ? err.message : String(err),
         lastUpdated: now,
       };

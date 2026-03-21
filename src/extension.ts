@@ -17,6 +17,7 @@ let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 const AUTO_REFRESH_INTERVAL = 5 * 60_000;
+const settingsWatchers: fs.FSWatcher[] = [];
 
 export function activate(context: vscode.ExtensionContext): void {
   usageProvider = new UsageProvider();
@@ -24,6 +25,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
   refreshData();
   refreshTimer = setInterval(refreshData, AUTO_REFRESH_INTERVAL);
+
+  // Watch Claude Code settings files for instant model/effort updates
+  const settingsFilesToWatch = [
+    path.join(os.homedir(), ".claude", "settings.json"),
+    path.join(os.homedir(), ".claude", "settings.local.json"),
+  ];
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspaceRoot) {
+    settingsFilesToWatch.push(
+      path.join(workspaceRoot, ".claude", "settings.json"),
+      path.join(workspaceRoot, ".claude", "settings.local.json"),
+    );
+  }
+  for (const filePath of settingsFilesToWatch) {
+    try {
+      const watcher = fs.watch(filePath, () => refreshData());
+      settingsWatchers.push(watcher);
+    } catch {
+      // File doesn't exist yet — skip
+    }
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand("claude-tracker.openConsole", () =>
@@ -113,6 +135,9 @@ export function activate(context: vscode.ExtensionContext): void {
       dispose: () => {
         if (refreshTimer) {
           clearInterval(refreshTimer);
+        }
+        for (const w of settingsWatchers) {
+          w.close();
         }
         statusBarManager?.dispose();
       },
