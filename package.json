@@ -2,7 +2,7 @@
   "name": "claude-tracker",
   "displayName": "Claude Tracker",
   "description": "Track your Claude AI usage directly in VS Code",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "claude-tracker",
   "engines": {
     "vscode": "^1.80.0"
