@@ -19,6 +19,6 @@
 
 out/
 node_modules/
-media/fonts/
+# media/fonts/
 *.vsix
 .vscode-test/
