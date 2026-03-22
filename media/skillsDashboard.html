@@ -208,6 +208,50 @@
       font-style: italic;
     }
 
+    /* Marketplace folder rows */
+    .marketplace-folder {
+      background: var(--header-bg);
+    }
+
+    .marketplace-folder:hover {
+      background: var(--surface-hover) !important;
+    }
+
+    .marketplace-folder .name-cell {
+      font-weight: 600;
+      gap: 8px;
+    }
+
+    .folder-chevron {
+      font-size: 9px;
+      color: var(--text-dim);
+      display: inline-block;
+      transition: transform 0.2s ease;
+      width: 12px;
+      text-align: center;
+    }
+
+    .folder-chevron.expanded {
+      transform: rotate(90deg);
+    }
+
+    .folder-icon {
+      font-size: 14px;
+    }
+
+    .mp-badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .mp-indent {
+      padding-left: 52px !important;
+    }
+
     .footer {
       margin-top: 20px;
       text-align: center;
@@ -262,7 +306,7 @@
   </div>
   <div class="no-results" id="no-results">No skills match your filter.</div>
 
-  <div class="footer">Claude Tracker &middot; Skills discovered from ~/.claude/skills</div>
+  <div class="footer">Claude Tracker &middot; Skills discovered from ~/.claude/skills &amp; installed marketplaces</div>
 
   <script nonce="{{NONCE}}">
     const vscodeApi = acquireVsCodeApi();
@@ -274,16 +318,82 @@
       vscodeApi.postMessage({ command: 'openSkillsFolder' });
     });
 
+    // Marketplace folder toggle
+    const expandedGroups = new Set();
+    tbody.addEventListener('click', (e) => {
+      const folderRow = e.target.closest('.marketplace-folder');
+      if (!folderRow) return;
+      const groupId = folderRow.dataset.group;
+      const chevron = document.getElementById('chevron-' + groupId);
+      const isExpanded = expandedGroups.has(groupId);
+
+      if (isExpanded) {
+        expandedGroups.delete(groupId);
+        chevron.classList.remove('expanded');
+        tbody.querySelectorAll('.' + groupId).forEach(r => r.style.display = 'none');
+      } else {
+        expandedGroups.add(groupId);
+        chevron.classList.add('expanded');
+        tbody.querySelectorAll('.' + groupId).forEach(r => r.style.display = '');
+      }
+    });
+
     input.addEventListener('input', () => {
       const q = input.value.toLowerCase();
-      const rows = tbody.querySelectorAll('tr');
       let visible = 0;
-      rows.forEach(row => {
+
+      if (!q) {
+        // Reset: show all folder rows, hide collapsed children
+        tbody.querySelectorAll('tr').forEach(row => {
+          if (row.classList.contains('marketplace-skill')) {
+            const groups = [...row.classList].find(c => c.startsWith('mp-'));
+            row.style.display = (groups && expandedGroups.has(groups)) ? '' : 'none';
+          } else {
+            row.style.display = '';
+            visible++;
+          }
+        });
+        noResults.style.display = visible === 0 ? 'block' : 'none';
+        return;
+      }
+
+      // When filtering: show matching skills, auto-expand parent folders
+      const folderHasMatch = new Set();
+      tbody.querySelectorAll('.marketplace-skill').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const show = text.includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) {
+          visible++;
+          const groups = [...row.classList].find(c => c.startsWith('mp-'));
+          if (groups) folderHasMatch.add(groups);
+        }
+      });
+
+      // Show/hide folder rows based on whether they have matching children
+      tbody.querySelectorAll('.marketplace-folder').forEach(row => {
+        const groupId = row.dataset.group;
+        const folderMatches = row.textContent.toLowerCase().includes(q);
+        const hasChildMatch = folderHasMatch.has(groupId);
+        row.style.display = (folderMatches || hasChildMatch) ? '' : 'none';
+        if (folderMatches || hasChildMatch) visible++;
+        // Auto-expand chevron for matched groups
+        const chevron = document.getElementById('chevron-' + groupId);
+        if (hasChildMatch) {
+          chevron.classList.add('expanded');
+        } else {
+          chevron.classList.remove('expanded');
+        }
+      });
+
+      // Local skill rows (no marketplace class)
+      tbody.querySelectorAll('tr:not(.marketplace-folder):not(.marketplace-skill)').forEach(row => {
         const text = row.textContent.toLowerCase();
         const show = text.includes(q);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
+
       noResults.style.display = visible === 0 ? 'block' : 'none';
     });
   </script>

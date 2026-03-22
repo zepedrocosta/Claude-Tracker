@@ -5,7 +5,7 @@ import * as os from "os";
 import { exec, execFile } from "child_process";
 import { UsageProvider } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
-import { discoverSkills, buildSkillsDashboardHtml } from "./skillsProvider";
+import { discoverSkills, discoverMarketplaceSkills, buildSkillsDashboardHtml } from "./skillsProvider";
 import {
   discoverMcpServers,
   toggleMcpServer,
@@ -104,6 +104,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("claude-tracker.showSkills", () => {
       const skills = discoverSkills();
+      const marketplaceGroups = discoverMarketplaceSkills();
       const panel = vscode.window.createWebviewPanel(
         "claudeTrackerSkills",
         "Installed Skills",
@@ -115,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
         "media",
         "clawd.svg",
       );
-      panel.webview.html = buildSkillsDashboardHtml(skills, panel.webview, context.extensionUri);
+      panel.webview.html = buildSkillsDashboardHtml(skills, marketplaceGroups, panel.webview, context.extensionUri);
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.command === "openSkillsFolder") {
           const skillsDir = path.join(os.homedir(), ".claude", "skills");
