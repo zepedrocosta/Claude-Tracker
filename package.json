@@ -2,7 +2,7 @@
   "name": "claude-tracker",
   "displayName": "Claude Tracker",
   "description": "Track your Claude AI usage directly in VS Code",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "claude-tracker",
   "engines": {
     "vscode": "^1.80.0"
@@ -62,7 +62,17 @@
         "claudeTracker.notifications": {
           "type": "boolean",
           "default": false,
-          "description": "Show notifications when usage reaches 80% or 90%"
+          "description": "Show notifications when usage reaches the configured thresholds"
+        },
+        "claudeTracker.notificationThresholds": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "default": [75, 90],
+          "description": "Usage percentages (1–100) at which to show notifications"
         }
       }
     }

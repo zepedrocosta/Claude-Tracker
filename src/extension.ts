@@ -192,18 +192,25 @@ function checkNotifications(data: ClaudeUsageData): void {
     return;
   }
 
+  const config = vscode.workspace.getConfiguration("claudeTracker");
+  const thresholds = [...(config.get<number[]>("notificationThresholds", [75, 90]))]
+    .filter((t) => typeof t === "number" && t >= 1 && t <= 100)
+    .sort((a, b) => b - a);
+
   const limits: LimitSection[] = [
     data.sessionLimit,
     data.weeklyLimit,
     data.extraUsage,
   ].filter((l): l is LimitSection => !!l);
 
+  const maxThreshold = thresholds[0] ?? 90;
+
   for (const limit of limits) {
-    for (const threshold of [90, 80]) {
+    for (const threshold of thresholds) {
       const key = `${limit.label}:${threshold}`;
       if (limit.percentage >= threshold && !notifiedThresholds.has(key)) {
         notifiedThresholds.add(key);
-        const method = threshold >= 90
+        const method = threshold >= maxThreshold
           ? vscode.window.showWarningMessage
           : vscode.window.showInformationMessage;
         method(`Claude Tracker: ${limit.label} is at ${limit.percentage}%`);
