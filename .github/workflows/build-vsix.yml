@@ -2,7 +2,7 @@ name: Build and attach platform VSIX
 
 on:
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:

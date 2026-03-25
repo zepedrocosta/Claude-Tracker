@@ -82,8 +82,3 @@ jobs:
 
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.tag }}...${{ steps.version.outputs.tag }}
 
-      - name: Trigger VSIX build
-        if: steps.check_tag.outputs.exists == 'false'
-        run: gh workflow run build-vsix.yml -f tag=${{ steps.version.outputs.tag }}
-        env:
-          GH_TOKEN: ${{ github.token }}
