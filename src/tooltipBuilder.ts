@@ -24,6 +24,7 @@ function buildBar(percentage: number): string {
   return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
 }
 
+
 function appendLimitRow(md: vscode.MarkdownString, limit: LimitSection): void {
   md.appendMarkdown(`${limit.label} &nbsp;&nbsp; **${limit.percentage}%**\n\n`);
   md.appendMarkdown(`<p align="center">${buildBar(limit.percentage)}</p>\n\n`);
@@ -65,6 +66,14 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
     md.appendMarkdown(`$(dashboard) Effort: **${effort}**\n\n`);
   }
 
+  const notificationsEnabled = vscode.workspace
+    .getConfiguration("claudeTracker")
+    .get<boolean>("notifications", false);
+  const notifIcon = notificationsEnabled ? "$(bell)" : "$(bell-slash)";
+  const notifLabel = notificationsEnabled ? "On" : "Off";
+
+  md.appendMarkdown(`---\n\n`);
+  md.appendMarkdown(`${notifIcon} Notifications: **${notifLabel}**\n\n`);
   md.appendMarkdown(`---\n\n`);
   md.appendMarkdown(
     `[Manage usage](https://claude.ai/settings/usage) &nbsp;|&nbsp; [$(tools) Installed Skills](command:claude-tracker.showSkills "View installed skills") &nbsp;|&nbsp; [$(server) MCP Servers](command:claude-tracker.showMcp "View MCP servers")\n\n`,

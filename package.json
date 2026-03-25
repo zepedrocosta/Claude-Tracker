@@ -39,6 +39,11 @@
         "command": "claude-tracker.showMcp",
         "title": "Show MCP Servers",
         "category": "Claude Tracker"
+      },
+      {
+        "command": "claude-tracker.toggleNotifications",
+        "title": "Toggle Usage Notifications",
+        "category": "Claude Tracker"
       }
     ],
     "configuration": {
@@ -53,6 +58,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show Claude Tracker in the status bar"
+        },
+        "claudeTracker.notifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show notifications when usage reaches 80% or 90%"
         }
       }
     }

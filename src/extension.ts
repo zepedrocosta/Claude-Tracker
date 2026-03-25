@@ -5,6 +5,7 @@ import * as os from "os";
 import { exec, execFile } from "child_process";
 import { UsageProvider } from "./usageProvider";
 import { StatusBarManager } from "./statusBar";
+import { ClaudeUsageData, LimitSection } from "./types";
 import { discoverSkills, discoverMarketplaceSkills, buildSkillsDashboardHtml } from "./skillsProvider";
 import {
   discoverMcpServers,
@@ -16,8 +17,10 @@ import {
 let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let lastUsageData: ClaudeUsageData | undefined;
 const AUTO_REFRESH_INTERVAL = 5 * 60_000;
 const settingsWatchers: fs.FSWatcher[] = [];
+const notifiedThresholds = new Set<string>();
 
 export function activate(context: vscode.ExtensionContext): void {
   usageProvider = new UsageProvider();
@@ -53,6 +56,15 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.Uri.parse("https://claude.ai/settings/usage"),
       ),
     ),
+    vscode.commands.registerCommand("claude-tracker.toggleNotifications", async () => {
+      const config = vscode.workspace.getConfiguration("claudeTracker");
+      const current = config.get<boolean>("notifications", false);
+      await config.update("notifications", !current, vscode.ConfigurationTarget.Global);
+      notifiedThresholds.clear();
+      if (lastUsageData && statusBarManager) {
+        statusBarManager.update(lastUsageData);
+      }
+    }),
     vscode.commands.registerCommand("claude-tracker.showMcp", () => {
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       const servers = discoverMcpServers(workspaceRoot);
@@ -153,7 +165,9 @@ function refreshData(): void {
   usageProvider
     .getUsageData()
     .then((data) => {
+      lastUsageData = data;
       statusBarManager!.update(data);
+      checkNotifications(data);
     })
     .catch((err) => {
       console.error("[Claude Tracker] refresh error:", err);
@@ -168,6 +182,35 @@ function refreshData(): void {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+}
+
+function checkNotifications(data: ClaudeUsageData): void {
+  const enabled = vscode.workspace
+    .getConfiguration("claudeTracker")
+    .get<boolean>("notifications", false);
+  if (!enabled || data.error) {
+    return;
+  }
+
+  const limits: LimitSection[] = [
+    data.sessionLimit,
+    data.weeklyLimit,
+    data.extraUsage,
+  ].filter((l): l is LimitSection => !!l);
+
+  for (const limit of limits) {
+    for (const threshold of [90, 80]) {
+      const key = `${limit.label}:${threshold}`;
+      if (limit.percentage >= threshold && !notifiedThresholds.has(key)) {
+        notifiedThresholds.add(key);
+        const method = threshold >= 90
+          ? vscode.window.showWarningMessage
+          : vscode.window.showInformationMessage;
+        method(`Claude Tracker: ${limit.label} is at ${limit.percentage}%`);
+        break;
+      }
+    }
+  }
 }
 
 function openFolder(folderPath: string): void {
