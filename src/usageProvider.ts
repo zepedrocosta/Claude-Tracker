@@ -17,9 +17,6 @@ export class RateLimitError extends Error {
 }
 
 export class UsageProvider {
-  private notified75 = false;
-  private notified90 = false;
-
   private readCredentials(): ClaudeCredentials | undefined {
     const candidates = [
       path.join(os.homedir(), ".claude", ".credentials.json"),
@@ -285,26 +282,6 @@ export class UsageProvider {
 
     try {
       const apiData = await this.fetchApiData(creds);
-      const pct = apiData.sessionLimit?.percentage ?? 0;
-
-      if (pct < 75) {
-        this.notified75 = false;
-        this.notified90 = false;
-      } else if (pct < 90) {
-        this.notified90 = false;
-      }
-
-      if (!this.notified90 && pct >= 90 && apiData.sessionLimit) {
-        this.notified90 = true;
-        vscode.window.showErrorMessage(
-          `Claude usage is at ${apiData.sessionLimit.percentage}%!`,
-        );
-      } else if (!this.notified75 && pct >= 75 && apiData.sessionLimit) {
-        this.notified75 = true;
-        vscode.window.showWarningMessage(
-          `Claude usage is at ${apiData.sessionLimit.percentage}%!`,
-        );
-      }
       return { plan, modelInfo, ...apiData, lastUpdated: now };
     } catch (err) {
       return {
