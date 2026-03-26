@@ -87,5 +87,5 @@ jobs:
         run: |
           gh workflow run build-vsix.yml -f tag="${{ steps.version.outputs.tag }}"
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
