@@ -6,7 +6,9 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extension",
+        "claude-tracker.claude-tracker"
       ],
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"

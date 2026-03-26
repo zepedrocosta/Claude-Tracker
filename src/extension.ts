@@ -24,7 +24,7 @@ const notifiedThresholds = new Set<string>();
 
 export function activate(context: vscode.ExtensionContext): void {
   usageProvider = new UsageProvider();
-  statusBarManager = new StatusBarManager();
+  statusBarManager = new StatusBarManager(context.extensionMode === vscode.ExtensionMode.Development);
 
   refreshData();
   refreshTimer = setInterval(refreshData, AUTO_REFRESH_INTERVAL);
@@ -77,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
       panel.iconPath = vscode.Uri.joinPath(
         context.extensionUri,
         "media",
+        "icons",
         "clawd.svg",
       );
       panel.webview.html = buildMcpDashboardHtml(servers, panel.webview, context.extensionUri);
@@ -126,6 +127,7 @@ export function activate(context: vscode.ExtensionContext): void {
       panel.iconPath = vscode.Uri.joinPath(
         context.extensionUri,
         "media",
+        "icons",
         "clawd.svg",
       );
       panel.webview.html = buildSkillsDashboardHtml(skills, marketplaceGroups, panel.webview, context.extensionUri);
