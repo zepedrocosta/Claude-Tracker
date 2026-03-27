@@ -1,4 +1,4 @@
-name: Create new release
+name: Release and build VSIX
 
 on:
   push:
@@ -14,6 +14,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      skip: ${{ steps.check_tag.outputs.exists }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,10 +85,40 @@ jobs:
 
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.tag }}...${{ steps.version.outputs.tag }}
 
-      - name: Trigger VSIX build
-        if: steps.check_tag.outputs.exists == 'false'
-        run: |
-          gh workflow run build-vsix.yml -f tag="${{ steps.version.outputs.tag }}"
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+  build:
+    needs: release
+    if: needs.release.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - alpine-arm64
+          - alpine-x64
+          - darwin-arm64
+          - darwin-x64
+          - linux-arm64
+          - linux-x64
+          - win32-arm64
+          - win32-x64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package VSIX for ${{ matrix.target }}
+        run: npx @vscode/vsce package --target ${{ matrix.target }}
+
+      - name: Upload VSIX to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: "*.vsix"
