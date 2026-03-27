@@ -18,21 +18,19 @@ let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let lastUsageData: ClaudeUsageData | undefined;
-export let outputChannel: vscode.OutputChannel;
+export let outputChannel: vscode.LogOutputChannel;
 const AUTO_REFRESH_INTERVAL = 5 * 60_000;
 const settingsWatchers: fs.FSWatcher[] = [];
 const notifiedThresholds = new Set<string>();
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel = vscode.window.createOutputChannel("Claude Tracker");
+  outputChannel = vscode.window.createOutputChannel("Claude Tracker", { log: true });
   context.subscriptions.push(outputChannel);
 
-  usageProvider = new UsageProvider((msg) =>
-    outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`)
-  );
+  usageProvider = new UsageProvider((msg) => outputChannel.info(msg));
   statusBarManager = new StatusBarManager(context.extensionMode === vscode.ExtensionMode.Development);
 
-  outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Claude Tracker activated`);
+  outputChannel.info("Claude Tracker activated");
   refreshData();
   refreshTimer = setInterval(refreshData, AUTO_REFRESH_INTERVAL);
 
@@ -51,11 +49,11 @@ export function activate(context: vscode.ExtensionContext): void {
   for (const filePath of settingsFilesToWatch) {
     try {
       const watcher = fs.watch(filePath, () => {
-        outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Settings changed: ${filePath}`);
+        outputChannel.info(`Settings changed: ${filePath}`);
         refreshData();
       });
       settingsWatchers.push(watcher);
-      outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Watching: ${filePath}`);
+      outputChannel.info(`Watching: ${filePath}`);
     } catch {
       // File doesn't exist yet — skip
     }
@@ -181,18 +179,18 @@ function refreshData(): void {
       lastUsageData = data;
       statusBarManager!.update(data);
       if (data.error) {
-        outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Usage data error: ${data.error}`);
+        outputChannel.warn(`Usage data error: ${data.error}`);
       } else {
         const parts: string[] = [`plan=${data.plan}`];
         if (data.sessionLimit) { parts.push(`session=${data.sessionLimit.percentage}%`); }
         if (data.weeklyLimit) { parts.push(`weekly=${data.weeklyLimit.percentage}%`); }
         if (data.modelInfo) { parts.push(`effort=${data.modelInfo.effortLevel}`); }
-        outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] OK — ${parts.join(", ")}`);
+        outputChannel.info(`OK — ${parts.join(", ")}`);
       }
       checkNotifications(data);
     })
     .catch((err) => {
-      outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Refresh error: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+      outputChannel.error(`Refresh error: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
       const config = vscode.workspace.getConfiguration("claudeTracker");
       const plan = config.get<string>("plan", "Claude Pro");
       statusBarManager!.update({
@@ -236,7 +234,7 @@ function checkNotifications(data: ClaudeUsageData): void {
           ? vscode.window.showWarningMessage
           : vscode.window.showInformationMessage;
         method(`Claude Tracker: ${limit.label} is at ${limit.percentage}%`);
-        outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Notification: ${limit.label} at ${limit.percentage}% (threshold ${threshold}%)`);
+        outputChannel.info(`Notification: ${limit.label} at ${limit.percentage}% (threshold ${threshold}%)`);
         break;
       }
     }
@@ -267,5 +265,5 @@ function openFolder(folderPath: string): void {
 
 export function deactivate(): void {
   statusBarManager?.dispose();
-  outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Claude Tracker deactivated`);
+  outputChannel.info("Claude Tracker deactivated");
 }
