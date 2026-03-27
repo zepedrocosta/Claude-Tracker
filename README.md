@@ -19,7 +19,7 @@ Progress bars change color based on usage: blue under 75%, yellow at 75-89%, red
 
 Clicking the status bar item opens the [Claude usage page](https://claude.ai/settings/usage) in your browser.
 
-The extension auto-refreshes every 5 minutes and watches Claude Code settings files (`~/.claude/settings.json`, etc.) for instant effort level updates.
+The extension auto-refreshes every 5 minutes and watches Claude Code settings files (`~/.claude/settings.json`, etc.) for instant effort level updates. Multiple VS Code windows are synchronized — only one instance fetches from the API per interval; the rest share the cached result.
 
 ### Skills Dashboard
 
@@ -46,9 +46,13 @@ Open via the tooltip link or `Claude Tracker: Show MCP Servers` in the Command P
 
 No manual configuration needed. The extension reads OAuth credentials from `~/.claude/.credentials.json`, written by the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Just have Claude Code installed and logged in.
 
+### Multi-instance synchronization
+
+All open VS Code windows share a single cache file at `~/.claude/tracker-cache.json`. When the 5-minute timer fires, whichever instance checks first fetches the data and writes it to the cache; all others reuse that cached result without making additional API calls.
+
 ### Rate Limiting
 
-If the API returns a 429 (rate limit), the extension keeps your last usage data visible and blocks refresh for 10 minutes.
+If the API returns a 429 (rate limit), the backoff state is written to the shared cache file so **all** open instances stop fetching for 10 minutes. Your last usage data remains visible during the backoff period.
 
 ## Installation (from source)
 

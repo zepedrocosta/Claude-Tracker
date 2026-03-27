@@ -27,7 +27,9 @@ export function activate(context: vscode.ExtensionContext): void {
   outputChannel = vscode.window.createOutputChannel("Claude Tracker");
   context.subscriptions.push(outputChannel);
 
-  usageProvider = new UsageProvider();
+  usageProvider = new UsageProvider((msg) =>
+    outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`)
+  );
   statusBarManager = new StatusBarManager(context.extensionMode === vscode.ExtensionMode.Development);
 
   outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Claude Tracker activated`);
@@ -173,7 +175,6 @@ function refreshData(): void {
   if (!usageProvider || !statusBarManager) {
     return;
   }
-  outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Refreshing usage data...`);
   usageProvider
     .getUsageData()
     .then((data) => {

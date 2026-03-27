@@ -9,6 +9,16 @@ interface ClaudeCredentials {
   expiresAt: number;
 }
 
+interface SharedState {
+  rateLimitedUntil: number;   // epoch ms; 0 = not rate-limited
+  lastFetchAt: number;         // epoch ms of last successful API fetch
+  cachedApiData: Partial<ClaudeUsageData> | null;
+}
+
+const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
+const FETCH_INTERVAL_MS = 5 * 60_000;        // 5 minutes
+const RATE_LIMIT_BACKOFF_MS = 10 * 60_000;   // 10 minutes
+
 export class RateLimitError extends Error {
   constructor() {
     super("Rate limited (429). Refresh blocked for 10 minutes.");
@@ -17,6 +27,37 @@ export class RateLimitError extends Error {
 }
 
 export class UsageProvider {
+  private readonly log: (msg: string) => void;
+
+  constructor(log: (msg: string) => void = () => { /* no-op */ }) {
+    this.log = log;
+  }
+
+  // ─── Shared state (cross-instance cache + rate-limit coordination) ───────────
+
+  private readSharedState(): SharedState {
+    try {
+      const raw = fs.readFileSync(CACHE_FILE, "utf-8");
+      return JSON.parse(raw) as SharedState;
+    } catch {
+      return { rateLimitedUntil: 0, lastFetchAt: 0, cachedApiData: null };
+    }
+  }
+
+  private writeSharedState(state: SharedState): void {
+    try {
+      const payload = {
+        _comment: "Claude Tracker shared cache. Coordinates API fetches and rate-limit backoff across all open VS Code instances. Do not edit manually.",
+        ...state,
+      };
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(payload, null, 2), "utf-8");
+    } catch {
+      // ignore write errors — cache is best-effort
+    }
+  }
+
+  // ─── Credentials ─────────────────────────────────────────────────────────────
+
   private readCredentials(): ClaudeCredentials | undefined {
     const candidates = [
       path.join(os.homedir(), ".claude", ".credentials.json"),
@@ -50,6 +91,7 @@ export class UsageProvider {
   private async fetchApiData(
     creds: ClaudeCredentials,
   ): Promise<Partial<ClaudeUsageData>> {
+    this.log("Fetching usage data from API...");
     const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
       headers: {
         Authorization: `Bearer ${creds.accessToken}`,
@@ -75,7 +117,7 @@ export class UsageProvider {
 
     if (!parsed.sessionLimit && !parsed.weeklyLimit) {
       const snapshot = JSON.stringify(usage, null, 2).substring(0, 500);
-      console.log("[Claude Tracker] Raw API response:", snapshot);
+      this.log(`Raw API response: ${snapshot}`);
       parsed.error = `Could not parse usage data. Response keys: ${Object.keys(usage).join(", ")}`;
     }
 
@@ -171,12 +213,7 @@ export class UsageProvider {
     if (pct !== undefined) {
       return { label, subLabel: this.extractReset(bucket), percentage: pct };
     }
-    console.log(
-      `[Claude Tracker] "${label}" bucket keys:`,
-      Object.keys(bucket),
-      "values:",
-      JSON.stringify(bucket).substring(0, 300),
-    );
+    this.log(`"${label}" bucket keys: ${Object.keys(bucket).join(", ")} — values: ${JSON.stringify(bucket).substring(0, 300)}`);
     return undefined;
   }
 
@@ -252,10 +289,11 @@ export class UsageProvider {
   public async getUsageData(): Promise<ClaudeUsageData> {
     const config = vscode.workspace.getConfiguration("claudeTracker");
     const plan = config.get<string>("plan", "Claude Pro");
-    const now = new Date().toLocaleTimeString([], {
+    const nowStr = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
+    const nowMs = Date.now();
 
     const creds = this.readCredentials();
     const modelInfo = this.readModelInfo();
@@ -264,31 +302,58 @@ export class UsageProvider {
       return {
         plan,
         modelInfo,
-        lastUpdated: now,
+        lastUpdated: nowStr,
         error:
           "Claude CLI credentials not found. Make sure Claude Code is installed and you have logged in.",
       };
     }
 
-    if (creds.expiresAt > 0 && Date.now() > creds.expiresAt) {
+    if (creds.expiresAt > 0 && nowMs > creds.expiresAt) {
       return {
         plan,
         modelInfo,
-        lastUpdated: now,
+        lastUpdated: nowStr,
         error:
           'Claude CLI session has expired. Run "claude" in a terminal to refresh it.',
       };
     }
 
-    try {
-      const apiData = await this.fetchApiData(creds);
-      return { plan, modelInfo, ...apiData, lastUpdated: now };
-    } catch (err) {
+    const state = this.readSharedState();
+
+    // Rate-limited — block all instances until backoff expires
+    if (state.rateLimitedUntil > nowMs) {
+      const remaining = Math.ceil((state.rateLimitedUntil - nowMs) / 60_000);
+      this.log(`Rate-limited, resuming in ${remaining} min`);
       return {
         plan,
         modelInfo,
+        ...(state.cachedApiData ?? {}),
+        lastUpdated: nowStr,
+        error: `Rate limited (429). Resuming in ${remaining} min.`,
+      };
+    }
+
+    // Cache is fresh — return cached data (avoids redundant fetches across instances)
+    if (state.lastFetchAt > 0 && nowMs - state.lastFetchAt < FETCH_INTERVAL_MS && state.cachedApiData) {
+      this.log(`Using shared cache (age ${Math.round((nowMs - state.lastFetchAt) / 1000)}s)`);
+      return { plan, modelInfo, ...state.cachedApiData, lastUpdated: nowStr };
+    }
+
+    // Fetch from API
+    try {
+      const apiData = await this.fetchApiData(creds);
+      this.writeSharedState({ rateLimitedUntil: 0, lastFetchAt: nowMs, cachedApiData: apiData });
+      return { plan, modelInfo, ...apiData, lastUpdated: nowStr };
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        this.writeSharedState({ ...state, rateLimitedUntil: nowMs + RATE_LIMIT_BACKOFF_MS });
+      }
+      return {
+        plan,
+        modelInfo,
+        ...(state.cachedApiData ?? {}),
+        lastUpdated: nowStr,
         error: err instanceof Error ? err.message : String(err),
-        lastUpdated: now,
       };
     }
   }

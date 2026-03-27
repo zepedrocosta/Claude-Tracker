@@ -29,7 +29,7 @@ This is a VS Code extension. The compiled entry point is `out/extension.js` (fro
 ### Source files
 
 | File | Purpose |
-|---|---|
+| --- | --- |
 | `src/extension.ts` | Activation, command registration, refresh timer, settings file watchers |
 | `src/usageProvider.ts` | Reads credentials, calls the usage API, parses response |
 | `src/statusBar.ts` | `StatusBarManager` — manages the status bar item (clawd icon) |
@@ -54,10 +54,37 @@ UsageProvider.getUsageData()   →   ClaudeUsageData
 
 `getUsageData()` also reads `ModelInfo` (effort level) from Claude Code settings files (`~/.claude/settings.json`, `~/.claude/settings.local.json`, and workspace-local equivalents).
 
-### Commands
+Before hitting the network, `getUsageData()` consults a shared state file (`~/.claude/tracker-cache.json`) to coordinate across multiple VS Code instances:
+
+1. **Rate-limited** (`rateLimitedUntil > now`): skip the fetch, return cached data with an error message showing the remaining backoff time.
+2. **Cache fresh** (`lastFetchAt` < 5 min ago and `cachedApiData` present): return cached data without a network call.
+3. **Stale/empty**: fetch from the API, write the result to the shared cache.
+4. **429 response**: set `rateLimitedUntil = now + 10 min` in the shared cache, blocking all instances.
+
+### Shared state (`~/.claude/tracker-cache.json`)
+
+> Cross-instance coordination file. Persists the last successful API response, the timestamp of the last fetch, and the rate-limit expiry time. All open VS Code windows read and write this file so that only one instance fetches per 5-minute interval and a 429 backoff is respected globally.
+
+Written and read by `UsageProvider`. Structure:
+
+```json
+{
+  "rateLimitedUntil": 0,
+  "lastFetchAt": 1234567890,
+  "cachedApiData": { ... }
+}
+```
+
+- `rateLimitedUntil` — epoch ms when the 429 backoff expires (0 = not rate-limited)
+- `lastFetchAt` — epoch ms of the last successful API fetch
+- `cachedApiData` — the last parsed `Partial<ClaudeUsageData>` returned by `parseUsageResponse`
+
+Writes are best-effort (`writeSharedState` silently ignores file errors).
+
+### Registered commands
 
 | Command ID | Description |
-|---|---|
+| --- | --- |
 | `claude-tracker.openConsole` | Opens the claude.ai usage page in a browser |
 | `claude-tracker.showSkills` | Opens a webview panel listing installed Claude Code skills |
 | `claude-tracker.showMcp` | Opens a webview panel listing MCP servers with toggle/delete controls |
@@ -75,6 +102,7 @@ Discovers skills by walking `~/.claude/skills/` for `SKILL.md` files and parsing
 ### MCP dashboard (`mcpProvider.ts`)
 
 Discovers MCP servers from three scopes with layered precedence:
+
 1. **User** — `~/.claude.json` top-level `mcpServers`
 2. **Local** — `~/.claude.json` → `projects[workspacePath].mcpServers`
 3. **Project** — `.mcp.json` at workspace root
@@ -109,5 +137,6 @@ The extension reads OAuth credentials from `~/.claude/.credentials.json` (writte
 ## Settings namespace
 
 All settings live under `claudeTracker.*`:
+
 - `claudeTracker.plan` — display name (e.g. "Claude Pro", "Claude Max")
 - `claudeTracker.showStatusBar` — show/hide the status bar item
