@@ -2,11 +2,16 @@
   "name": "claude-tracker",
   "displayName": "Claude Tracker",
   "description": "VS Code extension to track everything Claude related",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "josecosta",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zepedrocosta/Claude-Tracker"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
+  "icon": "media/icon.png",
   "categories": [
     "Other"
   ],
