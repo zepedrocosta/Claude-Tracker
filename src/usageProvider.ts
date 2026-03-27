@@ -106,8 +106,18 @@ export class UsageProvider {
           status?: { indicator: string; description: string };
         };
         if (data.status?.indicator !== undefined) {
-          if (data.status.indicator !== "none") {
-            
+          if (
+            data.status.indicator !== "none" &&
+            vscode.workspace
+              .getConfiguration("claudeTracker")
+              .get<boolean>("showServiceStatus", true)
+          ) {
+            this.log(
+              `Service status: ${data.status.indicator} - Description: ${data.status.description}`,
+            );
+            vscode.window.showWarningMessage(
+              `Claude service with status ${data.status.indicator} - Description: ${data.status.description} \nCheck https://status.claude.com for details.`,
+            );
           }
           return data.status as ServiceStatus;
         }
