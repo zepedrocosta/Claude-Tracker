@@ -6,13 +6,15 @@ A VS Code extension that tracks your Claude AI usage at a glance. See your sessi
 
 ### Status Bar
 
-A persistent **$(clawd-icon)** indicator in the bottom status bar. Hover to see a rich tooltip with:
+A persistent crab style (Claude Code mascot) indicator in the bottom status bar. Hover to see a rich tooltip with:
 
 - Your plan name (e.g. "Claude Pro Usage")
 - Session and weekly limit percentages with color-coded progress bars
 - Reset countdowns (minutes, hours, or days depending on time remaining)
 - Extra usage consumption (if enabled on your account)
+- Claude service status with a link to [status.claude.com](https://status.claude.com)
 - Current effort level (read from Claude Code settings)
+- Notification indicator (bell on/off)
 - Links to **Manage usage**, **Installed Skills**, and **MCP Servers**
 
 Progress bars change color based on usage: blue under 75%, yellow at 75-89%, red at 90%+.
@@ -74,20 +76,28 @@ npx vsce package
 
 ## Configuration
 
-| Setting                       | Type      | Default        | Description                           |
-| ----------------------------- | --------- | -------------- | ------------------------------------- |
-| `claudeTracker.plan`          | `string`  | `"Claude Pro"` | Plan name shown in the tooltip header |
-| `claudeTracker.showStatusBar` | `boolean` | `true`         | Show or hide the status bar item      |
+| Setting                                | Type       | Default        | Description                                                                |
+| -------------------------------------- | ---------- | -------------- | -------------------------------------------------------------------------- |
+| `claudeTracker.plan`                   | `string`   | `"Claude Pro"` | Plan name shown in the tooltip header                                      |
+| `claudeTracker.showStatusBar`          | `boolean`  | `true`         | Show or hide the status bar item                                           |
+| `claudeTracker.notifications`          | `boolean`  | `true`         | Show VS Code notifications when usage reaches the configured thresholds    |
+| `claudeTracker.notificationThresholds` | `number[]` | `[75, 90]`     | Usage percentages (1–100) at which to fire notifications                   |
+| `claudeTracker.showServiceStatus`      | `boolean`  | `true`         | Show Claude service status in the tooltip (fetched from status.claude.com) |
+
+### Usage notifications
+
+When `claudeTracker.notifications` is enabled, an info notification fires at the lower threshold and a **warning** notification fires at the highest threshold. Each threshold for each limit (session, weekly, extra) fires at most once per VS Code session. Thresholds reset when you toggle notifications off and back on.
 
 ## Commands
 
 Access via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
-| Command                                  | Description                                    |
-| ---------------------------------------- | ---------------------------------------------- |
-| `Claude Tracker: Open Claude Usage Page` | Opens claude.ai/settings/usage in your browser |
-| `Claude Tracker: Show Installed Skills`  | Opens the skills dashboard webview             |
-| `Claude Tracker: Show MCP Servers`       | Opens the MCP servers dashboard webview        |
+| Command                                       | Description                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `Claude Tracker: Open Claude Usage Page`      | Opens claude.ai/settings/usage in your browser                      |
+| `Claude Tracker: Show Installed Skills`       | Opens the skills dashboard webview                                  |
+| `Claude Tracker: Show MCP Servers`            | Opens the MCP servers dashboard webview                             |
+| `Claude Tracker: Toggle Usage Notifications`  | Toggles usage notifications on/off and clears the notified state    |
 
 ## Development
 
