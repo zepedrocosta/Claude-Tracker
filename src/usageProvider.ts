@@ -2,7 +2,12 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { ClaudeUsageData, LimitSection, ModelInfo } from "./types";
+import {
+  ClaudeUsageData,
+  LimitSection,
+  ModelInfo,
+  ServiceStatus,
+} from "./types";
 
 interface ClaudeCredentials {
   accessToken: string;
@@ -10,14 +15,14 @@ interface ClaudeCredentials {
 }
 
 interface SharedState {
-  rateLimitedUntil: number;   // epoch ms; 0 = not rate-limited
-  lastFetchAt: number;         // epoch ms of last successful API fetch
+  rateLimitedUntil: number; // epoch ms; 0 = not rate-limited
+  lastFetchAt: number; // epoch ms of last successful API fetch
   cachedApiData: Partial<ClaudeUsageData> | null;
 }
 
 const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
-const FETCH_INTERVAL_MS = 5 * 60_000;        // 5 minutes
-const RATE_LIMIT_BACKOFF_MS = 10 * 60_000;   // 10 minutes
+const FETCH_INTERVAL_MS = 5 * 60_000; // 5 minutes
+const RATE_LIMIT_BACKOFF_MS = 10 * 60_000; // 10 minutes
 
 export class RateLimitError extends Error {
   constructor() {
@@ -29,7 +34,11 @@ export class RateLimitError extends Error {
 export class UsageProvider {
   private readonly log: (msg: string) => void;
 
-  constructor(log: (msg: string) => void = () => { /* no-op */ }) {
+  constructor(
+    log: (msg: string) => void = () => {
+      /* no-op */
+    },
+  ) {
     this.log = log;
   }
 
@@ -47,7 +56,8 @@ export class UsageProvider {
   private writeSharedState(state: SharedState): void {
     try {
       const payload = {
-        _comment: "Claude Tracker shared cache. Coordinates API fetches and rate-limit backoff across all open VS Code instances. Do not edit manually.",
+        _comment:
+          "Claude Tracker shared cache. Coordinates API fetches and rate-limit backoff across all open VS Code instances. Do not edit manually.",
         ...state,
       };
       fs.writeFileSync(CACHE_FILE, JSON.stringify(payload, null, 2), "utf-8");
@@ -88,17 +98,40 @@ export class UsageProvider {
 
   // ─── API fetching ───────────────────────────────────────────────────────────
 
+  private async fetchServiceStatus(): Promise<ServiceStatus> {
+    try {
+      const res = await fetch("https://status.claude.com/api/v2/status.json");
+      if (res.ok) {
+        const data = (await res.json()) as {
+          status?: { indicator: string; description: string };
+        };
+        if (data.status?.indicator !== undefined) {
+          if (data.status.indicator !== "none") {
+            
+          }
+          return data.status as ServiceStatus;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return { indicator: "unknown", description: "Status unavailable" };
+  }
+
   private async fetchApiData(
     creds: ClaudeCredentials,
   ): Promise<Partial<ClaudeUsageData>> {
     this.log("Fetching usage data from API...");
-    const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
-      headers: {
-        Authorization: `Bearer ${creds.accessToken}`,
-        "anthropic-beta": "oauth-2025-04-20",
-        "User-Agent": "vscode-claude-tracker/1.0.0",
-      },
-    });
+    const [res, serviceStatus] = await Promise.all([
+      fetch("https://api.anthropic.com/api/oauth/usage", {
+        headers: {
+          Authorization: `Bearer ${creds.accessToken}`,
+          "anthropic-beta": "oauth-2025-04-20",
+          "User-Agent": "vscode-claude-tracker/1.0.0",
+        },
+      }),
+      this.fetchServiceStatus(),
+    ]);
 
     if (res.status === 429) {
       throw new RateLimitError();
@@ -114,6 +147,10 @@ export class UsageProvider {
 
     const usage = (await res.json()) as Record<string, unknown>;
     const parsed = this.parseUsageResponse(usage);
+
+    if (serviceStatus) {
+      parsed.serviceStatus = serviceStatus;
+    }
 
     if (!parsed.sessionLimit && !parsed.weeklyLimit) {
       const snapshot = JSON.stringify(usage, null, 2).substring(0, 500);
@@ -213,7 +250,9 @@ export class UsageProvider {
     if (pct !== undefined) {
       return { label, subLabel: this.extractReset(bucket), percentage: pct };
     }
-    this.log(`"${label}" bucket keys: ${Object.keys(bucket).join(", ")} — values: ${JSON.stringify(bucket).substring(0, 300)}`);
+    this.log(
+      `"${label}" bucket keys: ${Object.keys(bucket).join(", ")} — values: ${JSON.stringify(bucket).substring(0, 300)}`,
+    );
     return undefined;
   }
 
@@ -298,24 +337,33 @@ export class UsageProvider {
     const creds = this.readCredentials();
     const modelInfo = this.readModelInfo();
 
+    const resolve = async (
+      partial: Omit<ClaudeUsageData, "serviceStatus">,
+    ): Promise<ClaudeUsageData> => {
+      const serviceStatus =
+        (partial as ClaudeUsageData).serviceStatus ??
+        (await this.fetchServiceStatus());
+      return { ...partial, serviceStatus };
+    };
+
     if (!creds) {
-      return {
+      return resolve({
         plan,
         modelInfo,
         lastUpdated: nowStr,
         error:
           "Claude CLI credentials not found. Make sure Claude Code is installed and you have logged in.",
-      };
+      });
     }
 
     if (creds.expiresAt > 0 && nowMs > creds.expiresAt) {
-      return {
+      return resolve({
         plan,
         modelInfo,
         lastUpdated: nowStr,
         error:
           'Claude CLI session has expired. Run "claude" in a terminal to refresh it.',
-      };
+      });
     }
 
     const state = this.readSharedState();
@@ -324,37 +372,55 @@ export class UsageProvider {
     if (state.rateLimitedUntil > nowMs) {
       const remaining = Math.ceil((state.rateLimitedUntil - nowMs) / 60_000);
       this.log(`Rate-limited, resuming in ${remaining} min`);
-      return {
+      return resolve({
         plan,
         modelInfo,
         ...(state.cachedApiData ?? {}),
         lastUpdated: nowStr,
         error: `Rate limited (429). Resuming in ${remaining} min.`,
-      };
+      });
     }
 
     // Cache is fresh — return cached data (avoids redundant fetches across instances)
-    if (state.lastFetchAt > 0 && nowMs - state.lastFetchAt < FETCH_INTERVAL_MS && state.cachedApiData) {
-      this.log(`Using shared cache (age ${Math.round((nowMs - state.lastFetchAt) / 1000)}s)`);
-      return { plan, modelInfo, ...state.cachedApiData, lastUpdated: nowStr };
+    if (
+      state.lastFetchAt > 0 &&
+      nowMs - state.lastFetchAt < FETCH_INTERVAL_MS &&
+      state.cachedApiData
+    ) {
+      this.log(
+        `Using shared cache (age ${Math.round((nowMs - state.lastFetchAt) / 1000)}s)`,
+      );
+      return resolve({
+        plan,
+        modelInfo,
+        ...state.cachedApiData,
+        lastUpdated: nowStr,
+      });
     }
 
     // Fetch from API
     try {
       const apiData = await this.fetchApiData(creds);
-      this.writeSharedState({ rateLimitedUntil: 0, lastFetchAt: nowMs, cachedApiData: apiData });
-      return { plan, modelInfo, ...apiData, lastUpdated: nowStr };
+      this.writeSharedState({
+        rateLimitedUntil: 0,
+        lastFetchAt: nowMs,
+        cachedApiData: apiData,
+      });
+      return resolve({ plan, modelInfo, ...apiData, lastUpdated: nowStr });
     } catch (err) {
       if (err instanceof RateLimitError) {
-        this.writeSharedState({ ...state, rateLimitedUntil: nowMs + RATE_LIMIT_BACKOFF_MS });
+        this.writeSharedState({
+          ...state,
+          rateLimitedUntil: nowMs + RATE_LIMIT_BACKOFF_MS,
+        });
       }
-      return {
+      return resolve({
         plan,
         modelInfo,
         ...(state.cachedApiData ?? {}),
         lastUpdated: nowStr,
         error: err instanceof Error ? err.message : String(err),
-      };
+      });
     }
   }
 }

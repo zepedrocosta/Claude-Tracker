@@ -24,7 +24,6 @@ function buildBar(percentage: number): string {
   return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
 }
 
-
 function buildLimitHtml(limit: LimitSection): string {
   let html = `${limit.label} &nbsp;&nbsp; <strong>${limit.percentage}%</strong><br>${buildBar(limit.percentage)}`;
   if (limit.subLabel) {
@@ -46,9 +45,33 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
     const limitParts = [data.sessionLimit, data.weeklyLimit, data.extraUsage]
       .filter(Boolean)
       .map((l) => buildLimitHtml(l!));
-    if (limitParts.length) md.appendMarkdown(limitParts.join("<br><br>") + "\n\n");
+    if (limitParts.length)
+      md.appendMarkdown(limitParts.join("<br><br>") + "\n\n");
 
     md.appendMarkdown(`$(clock) Updated at ${data.lastUpdated}\n\n`);
+  }
+
+  if (
+    data.serviceStatus !== undefined &&
+    vscode.workspace
+      .getConfiguration("claudeTracker")
+      .get<boolean>("showServiceStatus", true)
+  ) {
+    const { indicator, description } = data.serviceStatus;
+    const icon =
+      indicator === "none"
+        ? "$(check)"
+        : indicator === "maintenance"
+          ? "$(tools)"
+          : indicator === "minor"
+            ? "$(warning)"
+            : indicator === "unknown"
+              ? "$(question)"
+              : "$(error)";
+    md.appendMarkdown(`---\n\n`);
+    md.appendMarkdown(
+      `${icon} [${description}](https://status.claude.com)\n\n`,
+    );
   }
 
   if (data.modelInfo) {

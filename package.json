@@ -66,8 +66,13 @@
         },
         "claudeTracker.notifications": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Show notifications when usage reaches the configured thresholds"
+        },
+        "claudeTracker.showServiceStatus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show service status information"
         },
         "claudeTracker.notificationThresholds": {
           "type": "array",
