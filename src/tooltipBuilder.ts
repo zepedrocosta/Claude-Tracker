@@ -25,12 +25,12 @@ function buildBar(percentage: number): string {
 }
 
 
-function appendLimitRow(md: vscode.MarkdownString, limit: LimitSection): void {
-  md.appendMarkdown(`${limit.label} &nbsp;&nbsp; **${limit.percentage}%**\n\n`);
-  md.appendMarkdown(`<p align="center">${buildBar(limit.percentage)}</p>\n\n`);
+function buildLimitHtml(limit: LimitSection): string {
+  let html = `${limit.label} &nbsp;&nbsp; <strong>${limit.percentage}%</strong><br>${buildBar(limit.percentage)}`;
   if (limit.subLabel) {
-    md.appendMarkdown(`${limit.subLabel}\n\n`);
+    html += `<br>${limit.subLabel}`;
   }
+  return html;
 }
 
 export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
@@ -43,17 +43,10 @@ export function buildTooltip(data: ClaudeUsageData): vscode.MarkdownString {
   } else {
     md.appendMarkdown(`**${data.plan} Usage**\n\n`);
 
-    if (data.sessionLimit) {
-      appendLimitRow(md, data.sessionLimit);
-    }
-
-    if (data.weeklyLimit) {
-      appendLimitRow(md, data.weeklyLimit);
-    }
-
-    if (data.extraUsage) {
-      appendLimitRow(md, data.extraUsage);
-    }
+    const limitParts = [data.sessionLimit, data.weeklyLimit, data.extraUsage]
+      .filter(Boolean)
+      .map((l) => buildLimitHtml(l!));
+    if (limitParts.length) md.appendMarkdown(limitParts.join("<br><br>") + "\n\n");
 
     md.appendMarkdown(`$(clock) Updated at ${data.lastUpdated}\n\n`);
   }
