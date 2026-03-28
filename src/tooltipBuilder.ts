@@ -17,11 +17,11 @@ function buildBar(percentage: number): string {
   const filled = Math.round((percentage / 100) * W);
   const color = barColor(percentage);
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<rect width="${W}" height="${H}" rx="2" fill="#3c3c3c"/>` +
     `<rect width="${filled}" height="${H}" rx="2" fill="${color}"/>` +
     `</svg>`;
-  return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
+  return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}" width="100%">`;
 }
 
 function buildLimitHtml(limit: LimitSection): string {
