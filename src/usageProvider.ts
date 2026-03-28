@@ -115,9 +115,18 @@ export class UsageProvider {
             this.log(
               `Service status: ${data.status.indicator} - Description: ${data.status.description}`,
             );
-            vscode.window.showWarningMessage(
-              `Claude service with status ${data.status.indicator} - Description: ${data.status.description} \nCheck https://status.claude.com for details.`,
-            );
+            vscode.window
+              .showWarningMessage(
+                `Claude service with status ${data.status.indicator} - ${data.status.description}`,
+                'View Status Page',
+              )
+              .then((selection) => {
+                if (selection === 'View Status Page') {
+                  vscode.env.openExternal(
+                    vscode.Uri.parse('https://status.claude.com'),
+                  );
+                }
+              });
           }
           return data.status as ServiceStatus;
         }
