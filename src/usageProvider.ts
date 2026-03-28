@@ -18,6 +18,7 @@ interface SharedState {
   rateLimitedUntil: number; // epoch ms; 0 = not rate-limited
   lastFetchAt: number; // epoch ms of last successful API fetch
   cachedApiData: Partial<ClaudeUsageData> | null;
+  lastServiceStatusIndicator?: string; // last known service status indicator
 }
 
 const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
@@ -106,8 +107,12 @@ export class UsageProvider {
           status?: { indicator: string; description: string };
         };
         if (data.status?.indicator !== undefined) {
+          const sharedState = this.readSharedState();
+          const indicatorChanged = data.status.indicator !== sharedState.lastServiceStatusIndicator;
+          this.writeSharedState({ ...sharedState, lastServiceStatusIndicator: data.status.indicator });
           if (
             data.status.indicator !== "none" &&
+            indicatorChanged &&
             vscode.workspace
               .getConfiguration("claudeTracker")
               .get<boolean>("showServiceStatus", true)
@@ -117,7 +122,7 @@ export class UsageProvider {
             );
             vscode.window
               .showWarningMessage(
-                `Claude service with status ${data.status.indicator} - ${data.status.description}`,
+                `Claude service with status ${data.status.indicator.toUpperCase()} - ${data.status.description}`,
                 'View Status Page',
               )
               .then((selection) => {
