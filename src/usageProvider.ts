@@ -355,6 +355,7 @@ export class UsageProvider {
     const nowStr = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
     const nowMs = Date.now();
 

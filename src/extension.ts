@@ -198,6 +198,7 @@ function refreshData(): void {
         lastUpdated: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
+          hour12: false,
         }),
         error: err instanceof Error ? err.message : String(err),
       });
