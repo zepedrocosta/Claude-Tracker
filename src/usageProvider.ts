@@ -426,7 +426,9 @@ export class UsageProvider {
     // Fetch from API
     try {
       const apiData = await this.fetchApiData(creds);
+      const freshState = this.readSharedState();
       this.writeSharedState({
+        ...freshState,
         rateLimitedUntil: 0,
         lastFetchAt: nowMs,
         cachedApiData: apiData,
