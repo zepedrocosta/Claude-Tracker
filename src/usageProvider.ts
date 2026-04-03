@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -91,6 +92,25 @@ export class UsageProvider {
         }
       } catch {
         // file doesn't exist or isn't valid JSON — try next
+      }
+    }
+
+    // macOS Keychain fallback
+    if (process.platform === "darwin") {
+      try {
+        const raw = execSync(
+          'security find-generic-password -s "Claude Code-credentials" -w',
+          { encoding: "utf-8" },
+        ).trim();
+        const data = JSON.parse(raw) as Record<string, unknown>;
+        const oauth = data["claudeAiOauth"] as Record<string, unknown> | undefined;
+        const accessToken = oauth?.["accessToken"] as string | undefined;
+        const expiresAt = oauth?.["expiresAt"] as number | undefined;
+        if (accessToken) {
+          return { accessToken, expiresAt: expiresAt ?? 0 };
+        }
+      } catch {
+        // keychain entry not found or not macOS — ignore
       }
     }
 
