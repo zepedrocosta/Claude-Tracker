@@ -81,7 +81,10 @@
             "minimum": 1,
             "maximum": 100
           },
-          "default": [75, 90],
+          "default": [
+            75,
+            90
+          ],
           "description": "Usage percentages (1–100) at which to show notifications"
         }
       }
@@ -96,7 +99,7 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
+    "@types/node": "^18.19.130",
     "@types/vscode": "^1.80.0",
     "fantasticon": "^4.1.0",
     "typescript": "^5.0.0"
