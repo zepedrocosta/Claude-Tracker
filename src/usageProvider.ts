@@ -24,6 +24,7 @@ interface SharedState {
 
 const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
 const FETCH_INTERVAL_MS = 5 * 60_000; // 5 minutes
+const FORCE_REFRESH_INTERVAL_MS = 60_000; // 1 minute (manual refresh cooldown)
 const RATE_LIMIT_BACKOFF_MS = 10 * 60_000; // 10 minutes
 
 export class RateLimitError extends Error {
@@ -375,7 +376,7 @@ export class UsageProvider {
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
-  public async getUsageData(): Promise<ClaudeUsageData> {
+  public async getUsageData(forceRefresh = false): Promise<ClaudeUsageData> {
     const config = vscode.workspace.getConfiguration("claudeTracker");
     const plan = config.get<string>("plan", "Claude Pro");
     const nowStr = new Date().toLocaleTimeString([], {
@@ -433,9 +434,10 @@ export class UsageProvider {
     }
 
     // Cache is fresh — return cached data (avoids redundant fetches across instances)
+    const cacheMaxAge = forceRefresh ? FORCE_REFRESH_INTERVAL_MS : FETCH_INTERVAL_MS;
     if (
       state.lastFetchAt > 0 &&
-      nowMs - state.lastFetchAt < FETCH_INTERVAL_MS &&
+      nowMs - state.lastFetchAt < cacheMaxAge &&
       state.cachedApiData
     ) {
       this.log(

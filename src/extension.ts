@@ -118,7 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.command === "refresh") {
-          refreshData();
+          panel.webview.postMessage({ command: "refreshStarted" });
+          refreshData(true);
         } else if (msg.command === "openConsole") {
           vscode.env.openExternal(
             vscode.Uri.parse("https://claude.ai/settings/usage"),
@@ -269,12 +270,12 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
-function refreshData(): void {
+function refreshData(forceRefresh = false): void {
   if (!usageProvider || !statusBarManager) {
     return;
   }
   usageProvider
-    .getUsageData()
+    .getUsageData(forceRefresh)
     .then((data) => {
       lastUsageData = data;
       statusBarManager!.update(data);
