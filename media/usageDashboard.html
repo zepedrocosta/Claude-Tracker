@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src {{CSP_SOURCE}}; style-src 'nonce-{{NONCE}}'; script-src 'nonce-{{NONCE}}';" />
+  <title>Claude Usage</title>
+  <style nonce="{{NONCE}}">
+    body.vscode-dark, body.vscode-high-contrast {
+      --bg: #1a1a1a;
+      --surface: #2a2a2a;
+      --surface-hover: #333333;
+      --border: #3d3d3d;
+      --text: #e8e0d8;
+      --text-dim: #9a918b;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.15);
+      --header-bg: #151515;
+      --bar-bg: #3c3c3c;
+      --bar-ok: #4caf50;
+      --bar-warn: #dfb317;
+      --bar-crit: #e05d44;
+      --pct-ok: #e8e0d8;
+      --pct-warn: #dfb317;
+      --pct-crit: #e05d44;
+    }
+
+    body.vscode-light, body.vscode-high-contrast-light {
+      --bg: #faf5f0;
+      --surface: #f0e9e1;
+      --surface-hover: #e8dfd6;
+      --border: #d9cfc5;
+      --text: #3d3029;
+      --text-dim: #7a6e64;
+      --accent: #d97757;
+      --accent-dim: rgba(217, 119, 87, 0.12);
+      --header-bg: #f5ede5;
+      --bar-bg: #d9cfc5;
+      --bar-ok: #388e3c;
+      --bar-warn: #b8960a;
+      --bar-crit: #c62828;
+      --pct-ok: #3d3029;
+      --pct-warn: #b8960a;
+      --pct-crit: #c62828;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 32px;
+      line-height: 1.6;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+
+    .error-banner {
+      background: rgba(224, 93, 68, 0.1);
+      border: 1px solid rgba(224, 93, 68, 0.35);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #e05d44;
+      margin-bottom: 20px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    .card-pct {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+
+    .card-pct .unit {
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .bar-track {
+      background: var(--bar-bg);
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .bar-fill.ok   { background: var(--bar-ok); }
+    .bar-fill.warn { background: var(--bar-warn); }
+    .bar-fill.crit { background: var(--bar-crit); }
+
+    .card-sublabel {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .info-row {
+      background: var(--header-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-dim);
+    }
+
+    .info-item strong {
+      color: var(--text);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.none        { background: var(--bar-ok); }
+    .status-dot.minor       { background: var(--bar-warn); }
+    .status-dot.major,
+    .status-dot.critical    { background: var(--bar-crit); }
+    .status-dot.maintenance { background: var(--accent); }
+    .status-dot.unknown     { background: var(--text-dim); }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <img src="{{CLAWD_ICON}}" width="24" height="24" alt="" />
+      </div>
+      <h1>Claude Usage</h1>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="plan-badge">&#8212;</span>
+      <button class="btn" id="btn-refresh" title="Refresh usage data">&#8635; Refresh</button>
+      <button class="btn" id="btn-skills" title="View installed skills">&#9889; Skills</button>
+      <button class="btn" id="btn-mcp" title="View MCP servers">&#9685; MCP</button>
+    </div>
+  </div>
+
+  <div id="error-banner" class="error-banner" style="display:none"></div>
+  <div id="cards" class="cards"></div>
+  <div id="info-row" class="info-row"></div>
+
+  <div class="footer">
+    <a href="#" id="manage-link">Manage usage on claude.ai &#8599;</a>
+  </div>
+
+  <script nonce="{{NONCE}}">
+    const vscodeApi = acquireVsCodeApi();
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      vscodeApi.postMessage({ command: 'refresh' });
+    });
+    document.getElementById('btn-skills').addEventListener('click', () => {
+      vscodeApi.postMessage({ command: 'showSkills' });
+    });
+    document.getElementById('btn-mcp').addEventListener('click', () => {
+      vscodeApi.postMessage({ command: 'showMcp' });
+    });
+    document.getElementById('manage-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      vscodeApi.postMessage({ command: 'openConsole' });
+    });
+
+    function barClass(pct) {
+      if (pct >= 90) return 'crit';
+      if (pct >= 75) return 'warn';
+      return 'ok';
+    }
+
+    function pctColor(pct) {
+      if (pct >= 90) return 'var(--pct-crit)';
+      if (pct >= 75) return 'var(--pct-warn)';
+      return 'var(--pct-ok)';
+    }
+
+    function renderData(data) {
+      document.getElementById('plan-badge').textContent = data.plan || '&#8212;';
+
+      const banner = document.getElementById('error-banner');
+      if (data.error) {
+        banner.textContent = '\u26A0 ' + data.error;
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+
+      const limits = [data.sessionLimit, data.weeklyLimit, data.extraUsage].filter(Boolean);
+      const cards = document.getElementById('cards');
+
+      if (limits.length === 0) {
+        cards.innerHTML = '<div class="no-data">No usage data available.</div>';
+      } else {
+        cards.innerHTML = limits.map(l => `
+          <div class="card">
+            <div class="card-label">${l.label}</div>
+            <div class="card-pct" style="color:${pctColor(l.percentage)}">${l.percentage}<span class="unit">%</span></div>
+            <div class="bar-track"><div class="bar-fill ${barClass(l.percentage)}" style="width:${l.percentage}%"></div></div>
+            ${l.subLabel ? `<div class="card-sublabel">${l.subLabel}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      const infoItems = [];
+
+      if (data.serviceStatus) {
+        const ind = data.serviceStatus.indicator;
+        infoItems.push(`
+          <span class="info-item">
+            <span class="status-dot ${ind}"></span>
+            <strong>${data.serviceStatus.description}</strong>
+          </span>`);
+      }
+
+      if (data.modelInfo) {
+        const effort = data.modelInfo.effortLevel;
+        const label = effort.charAt(0).toUpperCase() + effort.slice(1);
+        infoItems.push(`<span class="info-item">Effort: <strong>${label}</strong></span>`);
+      }
+
+      infoItems.push(`<span class="info-item">Updated: <strong>${data.lastUpdated}</strong></span>`);
+
+      document.getElementById('info-row').innerHTML = infoItems.join('');
+    }
+
+    renderData({{INITIAL_DATA}});
+
+    window.addEventListener('message', event => {
+      if (event.data.command === 'update') {
+        renderData(event.data.data);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -36,6 +36,11 @@
         "category": "Claude Tracker"
       },
       {
+        "command": "claude-tracker.showDashboard",
+        "title": "Show Usage Dashboard",
+        "category": "Claude Tracker"
+      },
+      {
         "command": "claude-tracker.showSkills",
         "title": "Show Installed Skills",
         "category": "Claude Tracker"

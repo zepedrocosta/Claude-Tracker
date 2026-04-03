@@ -103,7 +103,9 @@ export class UsageProvider {
           { encoding: "utf-8" },
         ).trim();
         const data = JSON.parse(raw) as Record<string, unknown>;
-        const oauth = data["claudeAiOauth"] as Record<string, unknown> | undefined;
+        const oauth = data["claudeAiOauth"] as
+          | Record<string, unknown>
+          | undefined;
         const accessToken = oauth?.["accessToken"] as string | undefined;
         const expiresAt = oauth?.["expiresAt"] as number | undefined;
         if (accessToken) {
@@ -128,8 +130,12 @@ export class UsageProvider {
         };
         if (data.status?.indicator !== undefined) {
           const sharedState = this.readSharedState();
-          const indicatorChanged = data.status.indicator !== sharedState.lastServiceStatusIndicator;
-          this.writeSharedState({ ...sharedState, lastServiceStatusIndicator: data.status.indicator });
+          const indicatorChanged =
+            data.status.indicator !== sharedState.lastServiceStatusIndicator;
+          this.writeSharedState({
+            ...sharedState,
+            lastServiceStatusIndicator: data.status.indicator,
+          });
           if (
             data.status.indicator !== "none" &&
             indicatorChanged &&
@@ -143,12 +149,12 @@ export class UsageProvider {
             vscode.window
               .showWarningMessage(
                 `Claude service with status ${data.status.indicator.toUpperCase()} - ${data.status.description}`,
-                'View Status Page',
+                "View Status Page",
               )
               .then((selection) => {
-                if (selection === 'View Status Page') {
+                if (selection === "View Status Page") {
                   vscode.env.openExternal(
-                    vscode.Uri.parse('https://status.claude.com'),
+                    vscode.Uri.parse("https://status.claude.com"),
                   );
                 }
               });

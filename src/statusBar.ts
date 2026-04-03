@@ -13,7 +13,7 @@ export class StatusBarManager {
     this.statusBarItem.text = isDev ? "$(clawd-icon) DEV" : "$(clawd-icon)";
     this.statusBarItem.color = "#CC785C";
     this.statusBarItem.name = "Claude Tracker";
-    this.statusBarItem.command = "claude-tracker.openConsole";
+    this.statusBarItem.command = "claude-tracker.showDashboard";
     this.statusBarItem.show();
   }
 
