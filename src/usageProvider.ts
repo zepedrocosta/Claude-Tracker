@@ -147,18 +147,14 @@ export class UsageProvider {
             this.log(
               `Service status: ${data.status.indicator} - Description: ${data.status.description}`,
             );
-            vscode.window
-              .showWarningMessage(
-                `Claude service with status ${data.status.indicator.toUpperCase()} - ${data.status.description}`,
-                "View Status Page",
-              )
-              .then((selection) => {
-                if (selection === "View Status Page") {
-                  vscode.env.openExternal(
-                    vscode.Uri.parse("https://status.claude.com"),
-                  );
-                }
-              });
+            void vscode.window.withProgress(
+              {
+                location: vscode.ProgressLocation.Notification,
+                title: `Claude service ${data.status.indicator.toUpperCase()} — ${data.status.description}`,
+                cancellable: false,
+              },
+              () => new Promise<void>((resolve) => setTimeout(resolve, 30_000)),
+            );
           }
           return data.status as ServiceStatus;
         }

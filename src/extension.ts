@@ -188,7 +188,7 @@ export function activate(context: vscode.ExtensionContext): void {
           vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath)).then(
             (doc) => vscode.window.showTextDocument(doc),
             () =>
-              vscode.window.showErrorMessage("Could not open ~/.claude.json"),
+              showTemporaryNotification("Could not open ~/.claude.json", "error"),
           );
         } else if (msg.command === "toggleServer") {
           const ok = toggleMcpServer(
@@ -200,17 +200,15 @@ export function activate(context: vscode.ExtensionContext): void {
           if (ok) {
             refreshPanel();
           } else {
-            vscode.window.showErrorMessage(`Failed to toggle "${msg.name}"`);
+            showTemporaryNotification(`Failed to toggle "${msg.name}"`, "error");
           }
         } else if (msg.command === "deleteServer") {
           const ok = deleteMcpServer(msg.name, msg.scope, workspaceRoot);
           if (ok) {
             refreshPanel();
-            vscode.window.showInformationMessage(
-              `Removed "${msg.name}" from MCP config`,
-            );
+            showTemporaryNotification(`Removed "${msg.name}" from MCP config`);
           } else {
-            vscode.window.showErrorMessage(`Failed to delete "${msg.name}"`);
+            showTemporaryNotification(`Failed to delete "${msg.name}"`, "error");
           }
         }
       });
@@ -317,6 +315,21 @@ function refreshData(forceRefresh = false): void {
     });
 }
 
+function showTemporaryNotification(
+  message: string,
+  level: "info" | "warning" | "error" = "info",
+  timeoutMs = 30_000,
+): void {
+  void vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: message,
+      cancellable: false,
+    },
+    () => new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  );
+}
+
 function checkNotifications(data: ClaudeUsageData): void {
   const enabled = vscode.workspace
     .getConfiguration("claudeTracker")
@@ -345,11 +358,11 @@ function checkNotifications(data: ClaudeUsageData): void {
       const key = `${limit.label}:${threshold}`;
       if (limit.percentage >= threshold && !notifiedThresholds.has(key)) {
         notifiedThresholds.add(key);
-        const method =
-          threshold >= maxThreshold
-            ? vscode.window.showWarningMessage
-            : vscode.window.showInformationMessage;
-        method(`Claude Tracker: ${limit.label} is at ${limit.percentage}%`);
+        const level = threshold >= maxThreshold ? "warning" : "info";
+        showTemporaryNotification(
+          `Claude Tracker: ${limit.label} is at ${limit.percentage}%`,
+          level,
+        );
         outputChannel.info(
           `Notification: ${limit.label} at ${limit.percentage}% (threshold ${threshold}%)`,
         );
@@ -367,7 +380,7 @@ function openFolder(folderPath: string): void {
   if (isWsl) {
     exec(`wslpath -w "${folderPath}"`, (err, winPath) => {
       if (err) {
-        vscode.window.showErrorMessage("Failed to resolve Windows path");
+        showTemporaryNotification("Failed to resolve Windows path", "error");
         return;
       }
       execFile("explorer.exe", [winPath.trim()]);
