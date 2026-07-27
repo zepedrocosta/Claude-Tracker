@@ -128,3 +128,16 @@ jobs:
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           files: "*.vsix"
+
+  cleanup_on_failure:
+    needs: [release, build]
+    if: always() && needs.release.outputs.skip == 'false' && needs.build.result == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          echo "Build failed — rolling back $TAG"
+          gh release delete "$TAG" --yes --cleanup-tag --repo "${{ github.repository }}" || true
