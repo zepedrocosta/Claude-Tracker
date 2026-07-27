@@ -1,0 +1,3 @@
+allowBuilds:
+  es5-ext: true
+  ttf2woff2: true

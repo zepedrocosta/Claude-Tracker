@@ -2,7 +2,7 @@
   "name": "claude-tracker",
   "displayName": "Claude Tracker",
   "description": "VS Code extension to track everything Claude related",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "josecosta",
   "repository": {
     "type": "git",
@@ -96,16 +96,19 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run gen-icons && npm run compile",
+    "vscode:prepublish": "pnpm run gen-icons && pnpm run compile",
     "gen-icons": "fantasticon",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile",
+    "pretest": "pnpm run compile",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
     "@types/node": "^18.19.130",
     "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
     "fantasticon": "^4.1.0",
     "typescript": "^5.0.0"
   }

@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm install          # install dependencies
-npm run compile      # compile TypeScript → out/
-npm run watch        # watch mode (incremental compile)
-npm run lint         # ESLint on src/
-npm run gen-icons    # regenerate icon font (fantasticon)
+pnpm install          # install dependencies
+pnpm run compile      # compile TypeScript → out/
+pnpm run watch        # watch mode (incremental compile)
+pnpm run lint         # ESLint on src/
+pnpm run gen-icons    # regenerate icon font (fantasticon)
 ```
 
 To run the extension: open the folder in VS Code and press **F5** (launches an Extension Development Host). There is no test suite.
@@ -17,7 +17,7 @@ To run the extension: open the folder in VS Code and press **F5** (launches an E
 To package for distribution:
 
 ```bash
-npx vsce package     # produces claude-tracker-<version>.vsix
+pnpm dlx vsce package # produces claude-tracker-<version>.vsix
 ```
 
 The `vscode:prepublish` script runs `gen-icons` then `compile` automatically.

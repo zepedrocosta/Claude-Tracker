@@ -320,10 +320,16 @@ function showTemporaryNotification(
   level: "info" | "warning" | "error" = "info",
   timeoutMs = 30_000,
 ): void {
+  const icon =
+    level === "error"
+      ? "$(error)"
+      : level === "warning"
+        ? "$(warning)"
+        : "$(info)";
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: message,
+      title: `${icon} ${message}`,
       cancellable: false,
     },
     () => new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
