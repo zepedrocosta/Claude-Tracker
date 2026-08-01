@@ -36,8 +36,9 @@ This is a VS Code extension. The compiled entry point is `out/extension.js` (fro
 | `src/statusBar.ts`      | `StatusBarManager` — manages the status bar item (clawd icon)                                                    |
 | `src/tooltipBuilder.ts` | Builds the `MarkdownString` tooltip with usage bars, model info, and action links                                |
 | `src/skillsProvider.ts` | Discovers local + marketplace skills, renders the skills dashboard webview                                       |
-| `src/mcpProvider.ts`    | Discovers, toggles, and deletes MCP servers; renders the MCP dashboard webview                                   |
+| `src/mcpProvider.ts`    | Discovers, toggles, deletes and annotates MCP servers; renders the MCP dashboard webview                         |
 | `src/types.ts`          | Shared types (`LimitSection`, `ModelInfo`, `ClaudeUsageData`)                                                    |
+| `src/log.ts`            | Owns the "Claude Tracker" log channel; exports `logInfo`/`logWarn`/`logError`/`errText`                          |
 
 ### Data flow
 
@@ -72,15 +73,22 @@ Written and read by `UsageProvider`. Structure:
 {
   "rateLimitedUntil": 0,
   "lastFetchAt": 1234567890,
-  "cachedApiData": { ... }
+  "cachedApiData": { ... },
+  "mcpServerMeta": { "<server>": { "description": "...", "url": "..." } }
 }
 ```
 
 - `rateLimitedUntil` — epoch ms when the 429 backoff expires (0 = not rate-limited)
 - `lastFetchAt` — epoch ms of the last successful API fetch
 - `cachedApiData` — the last parsed `Partial<ClaudeUsageData>` returned by `parseUsageResponse`
+- `mcpServerMeta` — per-server descriptions/links written by `mcpProvider` (see the MCP dashboard section)
 
 Writes are best-effort (`writeSharedState` silently ignores file errors).
+
+Two modules write this file, so both writers merge instead of overwriting:
+
+- `writeSharedState` re-reads the file immediately before writing and merges its payload over the on-disk contents — callers pass a snapshot taken *before* a network round-trip, so a blind write would drop concurrent changes. `mcpServerMeta` is always taken from disk, never from the caller's snapshot.
+- `updateTrackerCache` (in `mcpProvider`) does the same in the other direction, touching only the `mcpServerMeta` key.
 
 ### Registered commands
 
@@ -121,6 +129,35 @@ Handles these webview messages:
 - `openSettingsFile` — opens `~/.claude.json` in the VS Code text editor.
 - `toggleServer` — calls `toggleMcpServer(name, disabled, scope, workspaceRoot)` then re-renders the panel.
 - `deleteServer` — calls `deleteMcpServer(name, scope, workspaceRoot)` then re-renders and shows an info notification.
+- `saveServerMeta` — calls `setMcpServerMeta(name, description, url)` and replies with `{ command: 'metaSaved', index, ok, description, url }`. It deliberately does **not** re-render the panel: the webview patches the edited row from the reply and closes the dialog, so a failed write can report itself inside the still-open dialog instead of silently discarding the user's typing.
+- `openLink` — validates the URL with `parseExternalLink` (in `extension.ts`) and opens it with `vscode.env.openExternal`. Only `http`/`https` URLs **with a host** are accepted; anything else shows an error notification naming the rejected value.
+
+#### Per-server notes and links
+
+Each row has a pencil **edit button** (`.edit-btn`) in the `Actions` column, between the enable/disable toggle and the delete button. Clicking it opens a modal dialog (`#edit-overlay`) with a **Description** textarea and a **Link** field. Rows themselves are not clickable — the button is the only trigger, which keeps the command text selectable and makes the control keyboard-reachable without a `tabindex` on the row.
+
+The dialog reuses the delete confirmation's `.confirm-overlay` / `.confirm-dialog` shell (`.edit-dialog` just widens it to 460px), so both popups share one backdrop, border and button style. Escape or a backdrop click closes either one; Enter saves from the Link box, Cmd/Ctrl+Enter from the textarea.
+
+**Each row carries its own saved values in `data-description` and `data-url`.** The dialog is populated from the row it was opened on and written back to that row on save — so the row markup is the single source of truth in the webview, and the search box can filter on notes without any per-row form inputs existing in the DOM.
+
+The `Server` and `Actions` cells keep their flex layout in an inner `.name-wrap` / `.actions` wrapper rather than on the `<td>` itself — a `display: flex` table cell stops honouring `vertical-align: middle`, which knocked the controls off-centre once description lines made rows taller. The `Actions` column and its header are centered. Saving writes to the `mcpServerMeta` key of `~/.claude/tracker-cache.json`, keyed by server name (so it survives regardless of scope). **Notes are never written to `~/.claude.json`** — that file is Claude Code's config and the extension only writes to it for the toggle/delete actions that genuinely change MCP configuration.
+
+```json
+{
+  "mcpServerMeta": {
+    "context7": { "description": "Docs lookup", "url": "https://context7.com" }
+  }
+}
+```
+
+- A saved description renders as a dimmed second line under the server name; a saved link renders as a small link chip next to it (click to open externally).
+- The description runs to the end of the `Server` column and wraps onto further lines instead of being ellipsised. `.name-cell` is `white-space: nowrap` (so the name line never breaks), so `.server-desc` opts back in with `white-space: normal`. Its `max-width` is the `Server` column width minus the cell padding and the icon — under the table's auto layout that cap is the only thing stopping a long description from widening the column, so the two numbers have to be changed together.
+- The **Link** field is split into a small `http://` / `https://` `<select>` (`.url-scheme`) and a host/path text box, so the protocol is always explicit and a link can never be saved without one. The webview's `splitLink()` splits the row's stored URL when the dialog opens and `joinLink()` puts it back together on save; values stored without a protocol default to `https`. Pasting a full URL into the text box moves its protocol into the dropdown instead of leaving `https://https://…`. **The stored value is always the joined, full URL** — the split exists only in the dialog.
+- `discoverMcpServers()` overlays this metadata onto every `McpServerInfo` (`description`/`url`, empty strings when unset).
+- Saving with both fields blank deletes the server's entry; emptying the map deletes the `mcpServerMeta` key entirely.
+- `deleteMcpServer` also drops the server's metadata entry.
+- `updateTrackerCache` does a read-modify-write, preserving the usage cache and rate-limit keys. A missing `~/.claude/` directory is created; an unparseable cache is replaced rather than treated as an error (it is regenerable state, unlike `~/.claude.json`).
+- The search box filters on the description and link text too, reading them from the row's `data-description` / `data-url`.
 
 ### Key types (`src/types.ts`)
 
@@ -142,6 +179,30 @@ Fetches `GET https://status.claude.com/api/v2/status.json` in parallel with the 
 | `major` / `critical` | `$(error)`    |
 
 If the fetch fails, `indicator` is `"unknown"` and `description` is `"Status unavailable"`.
+
+### Logging (`src/log.ts`)
+
+One `LogOutputChannel` named **Claude Tracker**, created by `createLogChannel()` in `activate` and disposed with the extension. View it with *Output → Claude Tracker*; it honours the channel's log-level picker.
+
+The channel lives in `log.ts` rather than `extension.ts` for one reason: `extension.ts` imports `mcpProvider` and `skillsProvider`, so those modules cannot import it back without a require cycle. They import `logInfo` / `logWarn` / `logError` / `errText` from `log.ts` instead. `UsageProvider` is different — it takes a `log` callback in its constructor, and `extension.ts` still uses `outputChannel` directly.
+
+Calls made before `createLogChannel()` are dropped rather than throwing, so module-level code is safe.
+
+What gets logged:
+
+- **File I/O** — `mcpProvider.readJsonFile` logs malformed JSON at **error** level and unreadable files at **warn**, but stays silent on `ENOENT`, since a missing `.mcp.json` or tracker cache is the normal case. This is the one that matters most: a syntax error in `~/.claude.json` used to render an empty dashboard indistinguishable from "no servers configured". Failed writes to `~/.claude.json`, `.mcp.json` and the tracker cache log at error level.
+- **MCP discovery** — one summary line per `discoverMcpServers()` call: total, per-scope counts, how many are disabled, how many have saved notes.
+- **MCP mutations** — `toggleMcpServer` / `deleteMcpServer` log the attempt, then either the result or the specific reason for the `false` return (no workspace folder, unreadable config, name not present in that scope). `setMcpServerMeta` logs saves and clears.
+- **Skills discovery** — `collectSkills()` logs a per-source summary plus a **warn** line for every `SKILL.md` it drops and why (unreadable, no `name:` in the frontmatter, duplicate name). A skill silently missing from the dashboard is otherwise unexplainable. Marketplaces skipped for a missing or uninstalled `installLocation` are logged individually.
+- **Commands** — opening either dashboard, opening `~/.claude.json`, revealing the skills folder, and opening or rejecting an external link.
+
+`openFolder` reports spawn failures from `open` / `xdg-open` as errors with a notification, but only *logs* `explorer.exe` results: explorer exits with code 1 even on success, so treating that as a failure would alarm every Windows and WSL user.
+
+### Temporary notifications (`extension.ts` — `showTemporaryNotification`)
+
+Dashboard feedback (toggle/delete/save failures, bad links) goes through `showTemporaryNotification(message, level, timeoutMs)`, which uses `vscode.window.withProgress` at `ProgressLocation.Notification` so the message auto-dismisses (30 s default) instead of sticking around like `showErrorMessage`.
+
+`ProgressOptions.title` is **plain text** — codicon syntax (`$(error)`) is not rendered there and shows up verbatim in the notification. Severity is conveyed with an `Error:` / `Warning:` text prefix instead. Codicons only work in places that document them, such as `StatusBarItem.text` (`$(clawd-icon)` in `statusBar.ts`) and `MarkdownString` with `supportThemeIcons` (`tooltipBuilder.ts`).
 
 ### Usage notifications (`extension.ts` — `checkNotifications`)
 

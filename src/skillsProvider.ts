@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as crypto from "crypto";
+import { errText, logError, logInfo, logWarn } from "./log";
 
 export interface SkillInfo {
   name: string;
@@ -24,7 +25,8 @@ function findSkillFiles(dir: string): string[] {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
+    } catch (err) {
+      logWarn(`Skills: skipping unreadable directory ${current} — ${errText(err)}`);
       return;
     }
     for (const entry of entries) {
@@ -57,31 +59,58 @@ function parseFrontmatter(content: string): {
   };
 }
 
-export function discoverSkills(): SkillInfo[] {
-  const claudeDir = path.join(os.homedir(), ".claude");
-  const skillFiles = findSkillFiles(path.join(claudeDir, "skills"));
-
+/**
+ * Reads every SKILL.md into a de-duplicated, sorted list. Each file that gets
+ * dropped is logged with the reason — a skill silently missing from the
+ * dashboard is otherwise impossible to explain.
+ */
+function collectSkills(files: string[], source: string): SkillInfo[] {
   const skills: SkillInfo[] = [];
   const seen = new Set<string>();
+  let skipped = 0;
 
-  for (const file of skillFiles) {
+  for (const file of files) {
+    let content: string;
     try {
-      const content = fs.readFileSync(file, "utf-8");
-      const meta = parseFrontmatter(content);
-      if (meta.name && !seen.has(meta.name)) {
-        seen.add(meta.name);
-        skills.push({
-          name: meta.name,
-          description: meta.description ?? "",
-        });
-      }
-    } catch {
-      // skip unreadable files
+      content = fs.readFileSync(file, "utf-8");
+    } catch (err) {
+      skipped++;
+      logWarn(`Skills: could not read ${file} — ${errText(err)}`);
+      continue;
     }
+
+    const meta = parseFrontmatter(content);
+    if (!meta.name) {
+      skipped++;
+      logWarn(`Skills: no "name" in the frontmatter of ${file} — skipped`);
+      continue;
+    }
+    if (seen.has(meta.name)) {
+      skipped++;
+      logWarn(`Skills: duplicate skill "${meta.name}" at ${file} — keeping the first`);
+      continue;
+    }
+
+    seen.add(meta.name);
+    skills.push({ name: meta.name, description: meta.description ?? "" });
   }
 
   skills.sort((a, b) => a.name.localeCompare(b.name));
+  logInfo(
+    `Skills: ${source} — ${skills.length} skill(s) from ` +
+      `${files.length} SKILL.md file(s)` +
+      (skipped > 0 ? `, ${skipped} skipped` : ""),
+  );
   return skills;
+}
+
+export function discoverSkills(): SkillInfo[] {
+  const skillsDir = path.join(os.homedir(), ".claude", "skills");
+  if (!fs.existsSync(skillsDir)) {
+    logInfo(`Skills: no skills directory at ${skillsDir}`);
+    return [];
+  }
+  return collectSkills(findSkillFiles(skillsDir), skillsDir);
 }
 
 export function discoverMarketplaceSkills(): MarketplaceSkillGroup[] {
@@ -92,6 +121,7 @@ export function discoverMarketplaceSkills(): MarketplaceSkillGroup[] {
     "known_marketplaces.json",
   );
   if (!fs.existsSync(knownPath)) {
+    logInfo(`Skills: no marketplace registry at ${knownPath}`);
     return [];
   }
 
@@ -101,7 +131,8 @@ export function discoverMarketplaceSkills(): MarketplaceSkillGroup[] {
   >;
   try {
     marketplaces = JSON.parse(fs.readFileSync(knownPath, "utf-8"));
-  } catch {
+  } catch (err) {
+    logError(`Skills: could not parse ${knownPath} — ${errText(err)}`);
     return [];
   }
 
@@ -109,35 +140,25 @@ export function discoverMarketplaceSkills(): MarketplaceSkillGroup[] {
 
   for (const [name, info] of Object.entries(marketplaces)) {
     const installDir = info.installLocation;
-    if (!installDir || !fs.existsSync(installDir)) {
+    if (!installDir) {
+      logWarn(`Skills: marketplace "${name}" has no installLocation — skipped`);
+      continue;
+    }
+    if (!fs.existsSync(installDir)) {
+      logWarn(
+        `Skills: marketplace "${name}" is not installed at ${installDir} — skipped`,
+      );
       continue;
     }
 
-    const skillFiles = findSkillFiles(path.join(installDir, "skills"));
-    const skills: SkillInfo[] = [];
-    const seen = new Set<string>();
-
-    for (const file of skillFiles) {
-      try {
-        const content = fs.readFileSync(file, "utf-8");
-        const meta = parseFrontmatter(content);
-        if (meta.name && !seen.has(meta.name)) {
-          seen.add(meta.name);
-          skills.push({
-            name: meta.name,
-            description: meta.description ?? "",
-          });
-        }
-      } catch {
-        // skip unreadable files
-      }
-    }
-
+    const skills = collectSkills(
+      findSkillFiles(path.join(installDir, "skills")),
+      `marketplace "${name}"`,
+    );
     if (skills.length === 0) {
       continue;
     }
 
-    skills.sort((a, b) => a.name.localeCompare(b.name));
     groups.push({
       marketplace: name,
       repo: info.source?.repo ?? "",
@@ -146,6 +167,10 @@ export function discoverMarketplaceSkills(): MarketplaceSkillGroup[] {
   }
 
   groups.sort((a, b) => a.marketplace.localeCompare(b.marketplace));
+  const total = groups.reduce((n, g) => n + g.skills.length, 0);
+  logInfo(
+    `Skills: ${groups.length} marketplace(s) with skills, ${total} skill(s) total`,
+  );
   return groups;
 }
 

@@ -243,11 +243,17 @@
     td {
       padding: 14px 20px;
       font-size: 13.5px;
+      vertical-align: middle;
     }
 
+    /* Cells stay real table cells (so they vertically centre against the
+       tallest cell in the row); the flex layout lives in a wrapper inside. */
     .name-cell {
       white-space: nowrap;
       font-weight: 500;
+    }
+
+    .name-wrap {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -307,10 +313,21 @@
     }
 
     .actions-cell {
+      white-space: nowrap;
+      text-align: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .actions {
       display: flex;
       align-items: center;
-      gap: 12px;
-      white-space: nowrap;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    th.th-actions {
+      text-align: center;
     }
 
     /* Toggle switch */
@@ -474,6 +491,195 @@
       opacity: 0.85;
     }
 
+    /* Per-server notes + link */
+    [hidden] { display: none !important; }
+
+    .name-block {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .name-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* The name line stays on one line (.name-cell is nowrap); the description
+       opts back into wrapping so it runs to the end of the Server column and
+       continues on the next line instead of being cut off with an ellipsis.
+       The max-width is the Server column (320px) minus cell padding and the
+       icon, and it is what keeps a long description from widening the column
+       under the auto table layout. */
+    .server-desc {
+      font-size: 11.5px;
+      font-weight: 400;
+      color: var(--text-dim);
+      line-height: 1.4;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      max-width: 276px;
+    }
+
+    .link-chip {
+      background: none;
+      border: none;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      color: var(--accent);
+      cursor: pointer;
+      opacity: 0.85;
+      transition: opacity 0.15s;
+    }
+
+    .link-chip:hover { opacity: 1; }
+
+    .toggle,
+    .edit-btn,
+    .delete-btn,
+    .link-chip {
+      cursor: pointer;
+    }
+
+    .edit-btn {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      padding: 5px 7px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    .edit-btn:hover {
+      color: var(--accent);
+      background: rgba(217, 119, 87, 0.12);
+      border-color: rgba(217, 119, 87, 0.35);
+    }
+
+    /* Edit dialog — reuses .confirm-overlay for the backdrop */
+    .edit-dialog {
+      max-width: 460px;
+    }
+
+    .edit-dialog h3 {
+      margin-bottom: 18px;
+    }
+
+    .edit-dialog h3 span {
+      color: var(--accent);
+    }
+
+    .edit-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+
+    .edit-field label {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+    }
+
+    /* Inputs sit on --bg so they read as wells inside the --surface dialog */
+    .edit-field textarea,
+    .edit-field input,
+    .url-scheme {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .edit-field textarea,
+    .edit-field input {
+      width: 100%;
+      resize: vertical;
+    }
+
+    .edit-field textarea:focus,
+    .edit-field input:focus,
+    .url-scheme:focus {
+      border-color: var(--accent);
+    }
+
+    .edit-field textarea::placeholder,
+    .edit-field input::placeholder {
+      color: var(--text-dim);
+    }
+
+    /* Protocol dropdown + host box share the Link row */
+    .url-group {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .url-group input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .url-scheme {
+      flex: 0 0 auto;
+      padding-right: 8px;
+      cursor: pointer;
+    }
+
+    .url-scheme option {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .edit-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .edit-status {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-dim);
+      min-width: 0;
+    }
+
+    .edit-status.err { color: var(--red); }
+
+    .edit-actions button {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-save {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-save:hover { opacity: 0.88; }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -538,10 +744,10 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 200px;">Server</th>
+          <th style="width: 320px;">Server</th>
           <th>Command</th>
           <th style="width: 90px;">Scope</th>
-          <th style="width: 120px;">Actions</th>
+          <th class="th-actions" style="width: 120px;">Actions</th>
         </tr>
       </thead>
       <tbody id="servers-body">
@@ -562,6 +768,31 @@
     </div>
   </div>
 
+  <div class="confirm-overlay" id="edit-overlay">
+    <div class="confirm-dialog edit-dialog">
+      <h3>Edit <span id="edit-name"></span></h3>
+      <div class="edit-field">
+        <label for="edit-desc">Description</label>
+        <textarea id="edit-desc" rows="3" placeholder="What do you use this server for?"></textarea>
+      </div>
+      <div class="edit-field">
+        <label for="edit-url">Link</label>
+        <div class="url-group">
+          <select class="url-scheme" id="edit-scheme" aria-label="Link protocol">
+            <option value="https">https://</option>
+            <option value="http">http://</option>
+          </select>
+          <input id="edit-url" type="text" placeholder="docs.example.com" />
+        </div>
+      </div>
+      <div class="edit-actions">
+        <span class="edit-status" id="edit-status"></span>
+        <button class="btn-cancel" id="edit-cancel">Cancel</button>
+        <button class="btn-save" id="edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">Claude Tracker &middot; Scopes: User (~/.claude.json) &middot; Local (~/.claude.json per project) &middot; Project (.mcp.json)</div>
 
   <script nonce="{{NONCE}}">
@@ -578,41 +809,170 @@
     const confirmName = document.getElementById('confirm-name');
     const confirmCancel = document.getElementById('confirm-cancel');
     const confirmDelete = document.getElementById('confirm-delete');
+    const editOverlay = document.getElementById('edit-overlay');
+    const editName = document.getElementById('edit-name');
+    const editDesc = document.getElementById('edit-desc');
+    const editScheme = document.getElementById('edit-scheme');
+    const editUrl = document.getElementById('edit-url');
+    const editStatus = document.getElementById('edit-status');
+    const editCancel = document.getElementById('edit-cancel');
+    const editSave = document.getElementById('edit-save');
 
     let pendingDelete = null;
+    let editing = null;
 
     document.getElementById('open-settings').addEventListener('click', () => {
       vscodeApi.postMessage({ command: 'openSettingsFile' });
     });
 
+    const rowByIndex = (i) => tbody.querySelector('.server-row[data-index="' + i + '"]');
+
+    // A link is stored as one full URL; the dialog edits it as protocol + host.
+    const splitLink = (url) => {
+      const trimmed = (url || '').trim();
+      const match = /^(https?):\/\/(.*)$/i.exec(trimmed);
+      return match
+        ? { scheme: match[1].toLowerCase(), rest: match[2] }
+        : { scheme: 'https', rest: trimmed.replace(/^\/+/, '') };
+    };
+
+    const joinLink = (scheme, rest) => {
+      const host = rest.trim().replace(/^\/+/, '');
+      return host ? scheme + '://' + host : '';
+    };
+
     input.addEventListener('input', () => {
       const q = input.value.toLowerCase();
-      const rows = tbody.querySelectorAll('tr');
+      const rows = tbody.querySelectorAll('.server-row');
       let visible = 0;
       rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
+        const text = [
+          row.textContent,
+          row.dataset.description || '',
+          row.dataset.url || ''
+        ].join(' ').toLowerCase();
         const show = text.includes(q);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
-      noResults.style.display = visible === 0 ? 'block' : 'none';
+      noResults.style.display = rows.length > 0 && visible === 0 ? 'block' : 'none';
     });
 
     tbody.addEventListener('change', (e) => {
       const checkbox = e.target;
-      if (checkbox.tagName !== 'INPUT') return;
+      if (checkbox.tagName !== 'INPUT' || checkbox.type !== 'checkbox') return;
       const name = checkbox.dataset.name;
       const scope = checkbox.dataset.scope;
       const disabled = !checkbox.checked;
       vscodeApi.postMessage({ command: 'toggleServer', name, scope, disabled });
     });
 
+    /* Edit dialog: the row carries its own saved values in data attributes, so
+       the dialog is populated from the row and written back to it on save. */
+
+    const setEditStatus = (text, isError) => {
+      editStatus.textContent = text;
+      editStatus.className = isError ? 'edit-status err' : 'edit-status';
+    };
+
+    const openEditor = (row) => {
+      const link = splitLink(row.dataset.url);
+      editing = { index: row.dataset.index, name: row.dataset.name };
+      editName.textContent = row.dataset.name;
+      editDesc.value = row.dataset.description || '';
+      editScheme.value = link.scheme;
+      editUrl.value = link.rest;
+      setEditStatus('');
+      editOverlay.classList.add('active');
+      editDesc.focus();
+    };
+
+    const closeEditor = () => {
+      editOverlay.classList.remove('active');
+      editing = null;
+    };
+
+    const submitEditor = () => {
+      if (!editing) return;
+      setEditStatus('Saving...');
+      vscodeApi.postMessage({
+        command: 'saveServerMeta',
+        name: editing.name,
+        index: editing.index,
+        description: editDesc.value,
+        url: joinLink(editScheme.value, editUrl.value)
+      });
+    };
+
+    // Pasting a full URL moves its protocol into the dropdown instead of
+    // leaving a doubled-up "https://https://..." behind.
+    editUrl.addEventListener('input', () => {
+      const match = /^\s*(https?):\/\//i.exec(editUrl.value);
+      if (!match) return;
+      editScheme.value = match[1].toLowerCase();
+      editUrl.value = editUrl.value.slice(match[0].length);
+    });
+
+    editSave.addEventListener('click', submitEditor);
+    editCancel.addEventListener('click', closeEditor);
+
+    editOverlay.addEventListener('click', (e) => {
+      if (e.target === editOverlay) closeEditor();
+    });
+
+    // Enter saves from the link box; the textarea takes Cmd/Ctrl+Enter so plain
+    // Enter can still start a new line.
+    editOverlay.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (e.target === editDesc && !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      submitEditor();
+    });
+
     tbody.addEventListener('click', (e) => {
-      const btn = e.target.closest('.delete-btn');
-      if (!btn) return;
-      pendingDelete = { name: btn.dataset.name, scope: btn.dataset.scope };
-      confirmName.textContent = btn.dataset.name;
-      overlay.classList.add('active');
+      const row = e.target.closest('.server-row');
+      if (!row) return;
+
+      if (e.target.closest('.link-chip')) {
+        const url = row.dataset.url || '';
+        if (url) vscodeApi.postMessage({ command: 'openLink', url });
+        return;
+      }
+
+      if (e.target.closest('.edit-btn')) {
+        openEditor(row);
+        return;
+      }
+
+      const del = e.target.closest('.delete-btn');
+      if (del) {
+        pendingDelete = { name: del.dataset.name, scope: del.dataset.scope };
+        confirmName.textContent = del.dataset.name;
+        overlay.classList.add('active');
+      }
+    });
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.command !== 'metaSaved') return;
+      if (!msg.ok) {
+        setEditStatus('Could not write to ~/.claude/tracker-cache.json', true);
+        return;
+      }
+      // Keep the row in sync so the next edit starts from the saved values.
+      const row = rowByIndex(msg.index);
+      if (row) {
+        row.dataset.description = msg.description;
+        row.dataset.url = msg.url;
+        const desc = row.querySelector('.server-desc');
+        if (desc) {
+          desc.textContent = msg.description;
+          desc.hidden = !msg.description;
+        }
+        const chip = row.querySelector('.link-chip');
+        if (chip) chip.hidden = !msg.url;
+      }
+      closeEditor();
     });
 
     confirmCancel.addEventListener('click', () => {
@@ -630,6 +990,15 @@
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
+        overlay.classList.remove('active');
+        pendingDelete = null;
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (editOverlay.classList.contains('active')) closeEditor();
+      if (overlay.classList.contains('active')) {
         overlay.classList.remove('active');
         pendingDelete = null;
       }

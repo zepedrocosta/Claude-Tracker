@@ -15,9 +15,11 @@ import {
   discoverMcpServers,
   toggleMcpServer,
   deleteMcpServer,
+  setMcpServerMeta,
   buildMcpDashboardHtml,
 } from "./mcpProvider";
 import { buildUsageDashboardHtml } from "./usageDashboard";
+import { createLogChannel } from "./log";
 
 let statusBarManager: StatusBarManager | undefined;
 let usageProvider: UsageProvider | undefined;
@@ -30,9 +32,7 @@ const settingsWatchers: fs.FSWatcher[] = [];
 const notifiedThresholds = new Set<string>();
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel = vscode.window.createOutputChannel("Claude Tracker", {
-    log: true,
-  });
+  outputChannel = createLogChannel();
   context.subscriptions.push(outputChannel);
 
   usageProvider = new UsageProvider((msg) => outputChannel.info(msg));
@@ -149,6 +149,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand("claude-tracker.showMcp", () => {
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      outputChannel.info(
+        `Opening MCP dashboard (workspace: ${workspaceRoot ?? "none"})`,
+      );
       const servers = discoverMcpServers(workspaceRoot);
       const panel = vscode.window.createWebviewPanel(
         "claudeTrackerMcp",
@@ -185,10 +188,15 @@ export function activate(context: vscode.ExtensionContext): void {
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.command === "openSettingsFile") {
           const settingsPath = path.join(os.homedir(), ".claude.json");
+          outputChannel.info(`Opening ${settingsPath} in the editor`);
           vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath)).then(
             (doc) => vscode.window.showTextDocument(doc),
-            () =>
-              showTemporaryNotification("Could not open ~/.claude.json", "error"),
+            (err) => {
+              outputChannel.error(
+                `Could not open ${settingsPath}: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              showTemporaryNotification("Could not open ~/.claude.json", "error");
+            },
           );
         } else if (msg.command === "toggleServer") {
           const ok = toggleMcpServer(
@@ -202,6 +210,40 @@ export function activate(context: vscode.ExtensionContext): void {
           } else {
             showTemporaryNotification(`Failed to toggle "${msg.name}"`, "error");
           }
+        } else if (msg.command === "saveServerMeta") {
+          const ok = setMcpServerMeta(
+            msg.name,
+            String(msg.description ?? ""),
+            String(msg.url ?? ""),
+          );
+          // Reply instead of re-rendering so the open dropdown keeps its state
+          panel.webview.postMessage({
+            command: "metaSaved",
+            index: msg.index,
+            ok,
+            description: String(msg.description ?? "").trim(),
+            url: String(msg.url ?? "").trim(),
+          });
+          if (!ok) {
+            showTemporaryNotification(
+              `Failed to save details for "${msg.name}"`,
+              "error",
+            );
+          }
+        } else if (msg.command === "openLink") {
+          const target = parseExternalLink(String(msg.url ?? ""));
+          if (target) {
+            outputChannel.info(`Opening external link: ${target.toString()}`);
+            vscode.env.openExternal(target);
+          } else {
+            outputChannel.warn(
+              `Rejected external link: ${String(msg.url ?? "")}`,
+            );
+            showTemporaryNotification(
+              `Cannot open "${String(msg.url ?? "")}" — enter a host such as docs.example.com and pick http or https`,
+              "error",
+            );
+          }
         } else if (msg.command === "deleteServer") {
           const ok = deleteMcpServer(msg.name, msg.scope, workspaceRoot);
           if (ok) {
@@ -214,6 +256,7 @@ export function activate(context: vscode.ExtensionContext): void {
       });
     }),
     vscode.commands.registerCommand("claude-tracker.showSkills", () => {
+      outputChannel.info("Opening Skills dashboard");
       const skills = discoverSkills();
       const marketplaceGroups = discoverMarketplaceSkills();
       const panel = vscode.window.createWebviewPanel(
@@ -243,8 +286,10 @@ export function activate(context: vscode.ExtensionContext): void {
         if (msg.command === "openSkillsFolder") {
           const skillsDir = path.join(os.homedir(), ".claude", "skills");
           if (!fs.existsSync(skillsDir)) {
+            outputChannel.info(`Creating missing skills folder ${skillsDir}`);
             fs.mkdirSync(skillsDir, { recursive: true });
           }
+          outputChannel.info(`Opening skills folder ${skillsDir}`);
           openFolder(skillsDir);
         }
       });
@@ -315,21 +360,38 @@ function refreshData(forceRefresh = false): void {
     });
 }
 
+/**
+ * Validates a link coming from a webview before handing it to the OS. The
+ * dashboard always sends an explicit protocol, but a hand-edited cache entry
+ * could carry anything, so only http/https with a host are accepted.
+ */
+function parseExternalLink(raw: string): vscode.Uri | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  try {
+    const parsed = vscode.Uri.parse(trimmed, true);
+    const isWeb = parsed.scheme === "http" || parsed.scheme === "https";
+    return isWeb && parsed.authority ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function showTemporaryNotification(
   message: string,
   level: "info" | "warning" | "error" = "info",
   timeoutMs = 30_000,
 ): void {
-  const icon =
-    level === "error"
-      ? "$(error)"
-      : level === "warning"
-        ? "$(warning)"
-        : "$(info)";
+  // `ProgressOptions.title` is plain text — codicon syntax such as `$(error)`
+  // is not rendered there and would show up verbatim in the notification.
+  const prefix =
+    level === "error" ? "Error: " : level === "warning" ? "Warning: " : "";
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: `${icon} ${message}`,
+      title: `${prefix}${message}`,
       cancellable: false,
     },
     () => new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
@@ -383,20 +445,42 @@ function openFolder(folderPath: string): void {
   const isWsl =
     platform === "linux" && os.release().toLowerCase().includes("microsoft");
 
+  outputChannel.info(
+    `Revealing ${folderPath} (platform: ${isWsl ? "wsl" : platform})`,
+  );
+
+  // A file manager that never appears is otherwise a dead end — these all fail
+  // silently in the background.
+  const reportSpawnError = (tool: string) => (err: Error | null) => {
+    if (err) {
+      outputChannel.error(`${tool} failed for ${folderPath}: ${err.message}`);
+      showTemporaryNotification(`Could not open ${folderPath}`, "error");
+    }
+  };
+
+  // `explorer.exe` exits with code 1 even when it succeeds, so its result is
+  // only logged — treating that as a failure would alarm every Windows user.
+  const logSpawnResult = (err: Error | null) => {
+    if (err) {
+      outputChannel.info(`explorer.exe exit for ${folderPath}: ${err.message}`);
+    }
+  };
+
   if (isWsl) {
     exec(`wslpath -w "${folderPath}"`, (err, winPath) => {
       if (err) {
+        outputChannel.error(`wslpath failed for ${folderPath}: ${err.message}`);
         showTemporaryNotification("Failed to resolve Windows path", "error");
         return;
       }
-      execFile("explorer.exe", [winPath.trim()]);
+      execFile("explorer.exe", [winPath.trim()], logSpawnResult);
     });
   } else if (platform === "win32") {
-    execFile("explorer.exe", [folderPath]);
+    execFile("explorer.exe", [folderPath], logSpawnResult);
   } else if (platform === "darwin") {
-    execFile("open", [folderPath]);
+    execFile("open", [folderPath], reportSpawnError("open"));
   } else {
-    execFile("xdg-open", [folderPath]);
+    execFile("xdg-open", [folderPath], reportSpawnError("xdg-open"));
   }
 }
 

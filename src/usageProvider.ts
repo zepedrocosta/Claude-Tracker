@@ -20,6 +20,9 @@ interface SharedState {
   lastFetchAt: number; // epoch ms of last successful API fetch
   cachedApiData: Partial<ClaudeUsageData> | null;
   lastServiceStatusIndicator?: string; // last known service status indicator
+  // Per-server notes/links owned by mcpProvider (see McpServerMeta). Declared
+  // here so usage writes carry it through instead of dropping it.
+  mcpServerMeta?: Record<string, { description: string; url: string }>;
 }
 
 const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
@@ -58,10 +61,18 @@ export class UsageProvider {
 
   private writeSharedState(state: SharedState): void {
     try {
+      // Merge over whatever is on disk *now*: callers pass a snapshot read
+      // before a network round-trip, and other writers (MCP server notes) may
+      // have touched the file since.
+      const onDisk = this.readSharedState();
       const payload = {
         _comment:
           "Claude Tracker shared cache. Coordinates API fetches and rate-limit backoff across all open VS Code instances. Do not edit manually.",
+        ...onDisk,
         ...state,
+        // Owned solely by mcpProvider — always mirror disk, never a snapshot.
+        // `undefined` is dropped by JSON.stringify, so an unset key stays unset.
+        mcpServerMeta: onDisk.mcpServerMeta,
       };
       fs.writeFileSync(CACHE_FILE, JSON.stringify(payload, null, 2), "utf-8");
     } catch {
