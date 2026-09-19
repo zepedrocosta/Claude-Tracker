@@ -1,12 +1,10 @@
-module.exports = {
-  inputDir: "./media/icons",
-  outputDir: "./media/fonts",
-  fontTypes: ["woff2"],
-  assetTypes: [],
-  name: "clawd-icons",
-  prefix: "clawd",
-  codepoints: { clawd: 0xe001 },
-  fontHeight: 1024,
-  descent: 168,
-  normalize: true,
-};
+export const inputDir = "./media/icons";
+export const outputDir = "./media/fonts";
+export const fontTypes = ["woff2"];
+export const assetTypes = [];
+export const name = "clawd-icons";
+export const prefix = "clawd";
+export const codepoints = { clawd: 0xe001 };
+export const fontHeight = 1024;
+export const descent = 168;
+export const normalize = true;
