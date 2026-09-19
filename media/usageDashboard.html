@@ -21,6 +21,13 @@
       --bar-ok: #4caf50;
       --bar-warn: #dfb317;
       --bar-crit: #e05d44;
+      /* Weekly breakdown chart — categorical slots, validated as a set against --surface */
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --series-5: #d55181;
+      --series-other: #898781;
     }
 
     body.vscode-light, body.vscode-high-contrast-light {
@@ -37,6 +44,12 @@
       --bar-ok: #388e3c;
       --bar-warn: #b8960a;
       --bar-crit: #c62828;
+      --series-1: #2a78d6;
+      --series-2: #eb6834;
+      --series-3: #1baf7a;
+      --series-4: #eda100;
+      --series-5: #e87ba4;
+      --series-other: #898781;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -197,6 +210,93 @@
       color: var(--text-dim);
     }
 
+    .breakdown-card {
+      margin-bottom: 24px;
+    }
+
+    .breakdown-body {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 28px;
+      padding-top: 4px;
+    }
+
+    .donut {
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .donut circle {
+      fill: none;
+      stroke-width: 18;
+    }
+
+    .donut .seg {
+      stroke: var(--series);
+      cursor: default;
+      transition: opacity 0.15s;
+    }
+
+    .donut-value {
+      fill: var(--text);
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .donut-label {
+      fill: var(--text-dim);
+      font-size: 11px;
+    }
+
+    .breakdown-legend {
+      list-style: none;
+      flex: 1;
+      min-width: 180px;
+      max-width: 320px;
+      font-size: 13px;
+    }
+
+    .breakdown-legend li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 8px;
+      margin: 0 -8px;
+      border-radius: 6px;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    .breakdown-legend li.active { background: var(--surface-hover); }
+
+    .breakdown-legend .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      background: var(--series);
+      flex-shrink: 0;
+    }
+
+    .breakdown-legend .name { flex: 1; }
+
+    .breakdown-legend .pct {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .breakdown-card.hovering .seg:not(.active),
+    .breakdown-card.hovering li:not(.active) {
+      opacity: 0.35;
+    }
+
+    /* Colour follows the product (its key), never its rank or position */
+    .series-1 { --series: var(--series-1); }
+    .series-2 { --series: var(--series-2); }
+    .series-3 { --series: var(--series-3); }
+    .series-4 { --series: var(--series-4); }
+    .series-5 { --series: var(--series-5); }
+    .series-other { --series: var(--series-other); }
+
     .info-row {
       background: var(--header-bg);
       border: 1px solid var(--border);
@@ -248,6 +348,10 @@
 
     .footer a:hover {
       text-decoration: underline;
+    }
+
+    .footer .credit {
+      margin-top: 4px;
     }
 
     .no-data {
@@ -303,6 +407,17 @@
   <div id="error-banner" class="error-banner" style="display:none"></div>
   <div id="progress-section" class="progress-section"></div>
 
+  <div id="breakdown-card" class="progress-card breakdown-card" hidden>
+    <div class="progress-header">
+      <span class="progress-label">Weekly usage by product</span>
+      <span class="progress-hint" id="breakdown-since"></span>
+    </div>
+    <div class="breakdown-body">
+      <svg id="breakdown-donut" class="donut" width="140" height="140" viewBox="0 0 140 140" role="img"></svg>
+      <ul id="breakdown-legend" class="breakdown-legend"></ul>
+    </div>
+  </div>
+
   <div class="progress-section">
     <div class="progress-card">
       <div class="progress-header">
@@ -330,6 +445,7 @@
 
   <div class="footer">
     <a href="#" id="manage-link">Manage usage on claude.ai &#8599;</a>
+    <div class="credit">Made by Jos&eacute; Costa &middot; <a href="#" id="author-link">github.com/zepedrocosta &#8599;</a></div>
   </div>
 
   <script id="initial-data" type="application/json">{{INITIAL_DATA}}</script>
@@ -371,12 +487,115 @@
       e.preventDefault();
       vscodeApi.postMessage({ command: 'openConsole' });
     });
+    document.getElementById('author-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      vscodeApi.postMessage({ command: 'openAuthor' });
+    });
 
     function barClass(pct) {
       if (pct >= 90) return 'crit';
       if (pct >= 75) return 'warn';
       return 'ok';
     }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+
+    // ─── Weekly breakdown donut ────────────────────────────────────────────
+    const DONUT_C = 70;                          // centre; viewBox units are px
+    const DONUT_R = 54;                          // ring mid-radius (stroke 18 → 45..63)
+    const DONUT_LEN = 2 * Math.PI * DONUT_R;
+    const DONUT_GAP = 2;                         // surface gap between slices
+    const BREAKDOWN_SLOTS = { claude_code: '1', chat: '2', cowork: '3' };
+    let breakdownRows = [];
+
+    // Known products keep a fixed colour; unknown keys take the spare slots in
+    // API order (not rank, so a colour survives re-sorting), and anything past
+    // those folds into the "Other" grey.
+    function breakdownSlots(rows) {
+      let next = 4;
+      return rows.map(r => {
+        if (BREAKDOWN_SLOTS[r.key]) return BREAKDOWN_SLOTS[r.key];
+        if (r.key !== 'other' && next <= 5) return String(next++);
+        return 'other';
+      });
+    }
+
+    function setDonutCentre(row) {
+      document.getElementById('donut-value').textContent = row.percentage + '%';
+      document.getElementById('donut-label').textContent = row.label;
+    }
+
+    function renderBreakdown(breakdown) {
+      const card = document.getElementById('breakdown-card');
+      const apiRows = (breakdown && breakdown.rows) || [];
+      const slots = breakdownSlots(apiRows);
+      // Largest share first; products with no usage are left out entirely.
+      breakdownRows = apiRows
+        .map((r, i) => ({ ...r, slot: slots[i] }))
+        .filter(r => r.percentage > 0)
+        .sort((a, b) => b.percentage - a.percentage);
+      card.hidden = breakdownRows.length === 0;
+      if (card.hidden) return;
+
+      const rows = breakdownRows;
+      const total = rows.reduce((sum, r) => sum + r.percentage, 0);
+
+      const since = breakdown.since ? new Date(breakdown.since) : null;
+      document.getElementById('breakdown-since').textContent =
+        since && !isNaN(since.getTime())
+          ? 'Since ' + since.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+          : '';
+
+      // Each slice is a dashed ring, clockwise from 12 o'clock in legend order.
+      let offset = 0;
+      const slices = rows.map((r, i) => {
+        const len = (r.percentage / total) * DONUT_LEN;
+        const dash = rows.length > 1 ? Math.max(len - DONUT_GAP, 0.5) : len;
+        const slice = `<circle class="seg series-${r.slot}" data-i="${i}"
+          cx="${DONUT_C}" cy="${DONUT_C}" r="${DONUT_R}"
+          stroke-dasharray="${dash} ${DONUT_LEN}" stroke-dashoffset="${-offset}"
+          transform="rotate(-90 ${DONUT_C} ${DONUT_C})"><title>${esc(r.label)}: ${r.percentage}%</title></circle>`;
+        offset += len;
+        return slice;
+      }).join('');
+
+      const donut = document.getElementById('breakdown-donut');
+      donut.setAttribute('aria-label',
+        'Weekly usage by product: ' + rows.map(r => `${r.label} ${r.percentage}%`).join(', '));
+      donut.innerHTML = `
+        ${slices}
+        <text id="donut-value" class="donut-value" x="${DONUT_C}" y="${DONUT_C}" text-anchor="middle"></text>
+        <text id="donut-label" class="donut-label" x="${DONUT_C}" y="${DONUT_C + 18}" text-anchor="middle"></text>`;
+
+      document.getElementById('breakdown-legend').innerHTML = rows.map((r, i) => `
+        <li class="series-${r.slot}" data-i="${i}">
+          <span class="swatch"></span>
+          <span class="name">${esc(r.label)}</span>
+          <span class="pct">${r.percentage}%</span>
+        </li>`).join('');
+
+      setDonutCentre(rows[0]);
+    }
+
+    // Hovering a slice or a legend row highlights the pair and shows it in the centre.
+    function highlightBreakdown(i) {
+      const card = document.getElementById('breakdown-card');
+      card.classList.toggle('hovering', i !== null);
+      card.querySelectorAll('[data-i]').forEach(el => {
+        el.classList.toggle('active', el.dataset.i === String(i));
+      });
+      setDonutCentre(breakdownRows[i === null ? 0 : i]);
+    }
+
+    const breakdownCard = document.getElementById('breakdown-card');
+    breakdownCard.addEventListener('mouseover', e => {
+      const target = e.target.closest('[data-i]');
+      highlightBreakdown(target ? Number(target.dataset.i) : null);
+    });
+    breakdownCard.addEventListener('mouseleave', () => highlightBreakdown(null));
 
     function renderData(data) {
       document.getElementById('plan-badge').textContent = data.plan || '\u2014';
@@ -411,6 +630,8 @@
           el.style.width = el.dataset.pct + '%';
         });
       }
+
+      renderBreakdown(data.weeklyBreakdown);
 
       const infoItems = [];
 

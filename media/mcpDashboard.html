@@ -415,6 +415,19 @@
       color: var(--text-dim);
     }
 
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .footer .credit {
+      margin-top: 4px;
+    }
+
     .no-results {
       display: none;
       text-align: center;
@@ -793,7 +806,10 @@
     </div>
   </div>
 
-  <div class="footer">Claude Tracker &middot; Scopes: User (~/.claude.json) &middot; Local (~/.claude.json per project) &middot; Project (.mcp.json)</div>
+  <div class="footer">
+    <div>Claude Tracker &middot; Scopes: User (~/.claude.json) &middot; Local (~/.claude.json per project) &middot; Project (.mcp.json)</div>
+    <div class="credit">Made by Jos&eacute; Costa &middot; <a href="#" id="author-link">github.com/zepedrocosta &#8599;</a></div>
+  </div>
 
   <script nonce="{{NONCE}}">
     document.getElementById('config-bar').style.width = '{{CONFIG_PCT}}%';
@@ -823,6 +839,11 @@
 
     document.getElementById('open-settings').addEventListener('click', () => {
       vscodeApi.postMessage({ command: 'openSettingsFile' });
+    });
+
+    document.getElementById('author-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      vscodeApi.postMessage({ command: 'openAuthor' });
     });
 
     const rowByIndex = (i) => tbody.querySelector('.server-row[data-index="' + i + '"]');
