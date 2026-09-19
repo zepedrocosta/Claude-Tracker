@@ -4,10 +4,12 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
+  BreakdownRow,
   ClaudeUsageData,
   LimitSection,
   ModelInfo,
   ServiceStatus,
+  UsageBreakdown,
 } from "./types";
 
 interface ClaudeCredentials {
@@ -26,6 +28,8 @@ interface SharedState {
 }
 
 const CACHE_FILE = path.join(os.homedir(), ".claude", "tracker-cache.json");
+const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const STATUS_URL = "https://status.claude.com/api/v2/status.json";
 const FETCH_INTERVAL_MS = 5 * 60_000; // 5 minutes
 const FORCE_REFRESH_INTERVAL_MS = 60_000; // 1 minute (manual refresh cooldown)
 const RATE_LIMIT_BACKOFF_MS = 10 * 60_000; // 10 minutes
@@ -39,13 +43,34 @@ export class RateLimitError extends Error {
 
 export class UsageProvider {
   private readonly log: (msg: string) => void;
+  private readonly debug: boolean;
 
+  /**
+   * @param debug When true (Extension Development Host), every API response
+   *   body is written to the log.
+   */
   constructor(
     log: (msg: string) => void = () => {
       /* no-op */
     },
+    debug = false,
   ) {
     this.log = log;
+    this.debug = debug;
+  }
+
+  /** Logs a raw API response body, pretty-printed when it is JSON. Debug only. */
+  private logResponse(url: string, status: number, body: string): void {
+    if (!this.debug) {
+      return;
+    }
+    let pretty = body;
+    try {
+      pretty = JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+      // not JSON — log as-is
+    }
+    this.log(`[debug] GET ${url} → ${status}\n${pretty}`);
   }
 
   // ─── Shared state (cross-instance cache + rate-limit coordination) ───────────
@@ -135,9 +160,11 @@ export class UsageProvider {
 
   private async fetchServiceStatus(): Promise<ServiceStatus> {
     try {
-      const res = await fetch("https://status.claude.com/api/v2/status.json");
+      const res = await fetch(STATUS_URL);
+      const body = await res.text();
+      this.logResponse(STATUS_URL, res.status, body);
       if (res.ok) {
-        const data = (await res.json()) as {
+        const data = JSON.parse(body) as {
           status?: { indicator: string; description: string };
         };
         if (data.status?.indicator !== undefined) {
@@ -181,7 +208,7 @@ export class UsageProvider {
   ): Promise<Partial<ClaudeUsageData>> {
     this.log("Fetching usage data from API...");
     const [res, serviceStatus] = await Promise.all([
-      fetch("https://api.anthropic.com/api/oauth/usage", {
+      fetch(USAGE_URL, {
         headers: {
           Authorization: `Bearer ${creds.accessToken}`,
           "anthropic-beta": "oauth-2025-04-20",
@@ -190,6 +217,9 @@ export class UsageProvider {
       }),
       this.fetchServiceStatus(),
     ]);
+
+    const body = await res.text();
+    this.logResponse(USAGE_URL, res.status, body);
 
     if (res.status === 429) {
       throw new RateLimitError();
@@ -200,10 +230,10 @@ export class UsageProvider {
       );
     }
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      throw new Error(`HTTP ${res.status}: ${body}`);
     }
 
-    const usage = (await res.json()) as Record<string, unknown>;
+    const usage = JSON.parse(body) as Record<string, unknown>;
     const parsed = this.parseUsageResponse(usage);
 
     if (serviceStatus) {
@@ -314,6 +344,43 @@ export class UsageProvider {
     return undefined;
   }
 
+  /** Parse `seven_day_breakdown` — each product's share of the weekly usage */
+  private parseBreakdown(obj: unknown): UsageBreakdown | undefined {
+    if (!obj || typeof obj !== "object") {
+      return undefined;
+    }
+    const data = obj as Record<string, unknown>;
+    if (!Array.isArray(data["rows"])) {
+      return undefined;
+    }
+    const rows: BreakdownRow[] = [];
+    for (const row of data["rows"] as unknown[]) {
+      if (!row || typeof row !== "object") {
+        continue;
+      }
+      const { key, display_name: name, percent } = row as Record<
+        string,
+        unknown
+      >;
+      if (typeof key !== "string" || typeof percent !== "number") {
+        continue;
+      }
+      rows.push({
+        key,
+        label: typeof name === "string" ? name : key,
+        percentage: Math.round(percent),
+      });
+    }
+    if (rows.length === 0) {
+      this.log(
+        `"seven_day_breakdown" has no usable rows: ${JSON.stringify(obj).substring(0, 300)}`,
+      );
+      return undefined;
+    }
+    const since = data["window_started_at"];
+    return { since: typeof since === "string" ? since : undefined, rows };
+  }
+
   private parseUsageResponse(
     data: Record<string, unknown>,
   ): Partial<ClaudeUsageData> {
@@ -326,6 +393,8 @@ export class UsageProvider {
     result.weeklyLimit =
       this.parseBucket(data["seven_day"], "Weekly limit") ??
       this.parseBucket(data["weekly"], "Weekly limit");
+
+    result.weeklyBreakdown = this.parseBreakdown(data["seven_day_breakdown"]);
 
     const extra = data["extra_usage"] as Record<string, unknown> | undefined;
     if (

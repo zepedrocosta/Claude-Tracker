@@ -28,6 +28,7 @@ let lastUsageData: ClaudeUsageData | undefined;
 let usageDashboardPanel: vscode.WebviewPanel | undefined;
 export let outputChannel: vscode.LogOutputChannel;
 const AUTO_REFRESH_INTERVAL = 5 * 60_000;
+const AUTHOR_URL = "https://github.com/zepedrocosta";
 const settingsWatchers: fs.FSWatcher[] = [];
 const notifiedThresholds = new Set<string>();
 
@@ -35,10 +36,9 @@ export function activate(context: vscode.ExtensionContext): void {
   outputChannel = createLogChannel();
   context.subscriptions.push(outputChannel);
 
-  usageProvider = new UsageProvider((msg) => outputChannel.info(msg));
-  statusBarManager = new StatusBarManager(
-    context.extensionMode === vscode.ExtensionMode.Development,
-  );
+  const isDev = context.extensionMode === vscode.ExtensionMode.Development;
+  usageProvider = new UsageProvider((msg) => outputChannel.info(msg), isDev);
+  statusBarManager = new StatusBarManager(isDev);
 
   outputChannel.info("Claude Tracker activated");
   refreshData();
@@ -128,6 +128,8 @@ export function activate(context: vscode.ExtensionContext): void {
           vscode.commands.executeCommand("claude-tracker.showSkills");
         } else if (msg.command === "showMcp") {
           vscode.commands.executeCommand("claude-tracker.showMcp");
+        } else if (msg.command === "openAuthor") {
+          openAuthorPage();
         }
       });
     }),
@@ -252,6 +254,8 @@ export function activate(context: vscode.ExtensionContext): void {
           } else {
             showTemporaryNotification(`Failed to delete "${msg.name}"`, "error");
           }
+        } else if (msg.command === "openAuthor") {
+          openAuthorPage();
         }
       });
     }),
@@ -291,6 +295,8 @@ export function activate(context: vscode.ExtensionContext): void {
           }
           outputChannel.info(`Opening skills folder ${skillsDir}`);
           openFolder(skillsDir);
+        } else if (msg.command === "openAuthor") {
+          openAuthorPage();
         }
       });
     }),
@@ -377,6 +383,12 @@ function parseExternalLink(raw: string): vscode.Uri | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Opens the author's GitHub profile from the credit line in every dashboard footer. */
+function openAuthorPage(): void {
+  outputChannel.info(`Opening external link: ${AUTHOR_URL}`);
+  vscode.env.openExternal(vscode.Uri.parse(AUTHOR_URL));
 }
 
 function showTemporaryNotification(
