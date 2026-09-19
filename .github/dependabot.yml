@@ -1,0 +1,31 @@
+version: 2
+
+updates:
+  # pnpm uses the npm ecosystem; Dependabot reads pnpm-lock.yaml.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      # Majors are left out so each breaking change gets its own PR.
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # vsce refuses to package when @types/vscode is newer than engines.vscode
+      # (^1.80.0). Bump both together by hand when raising the minimum VS Code.
+      - dependency-name: "@types/vscode"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
