@@ -243,3 +243,16 @@ All settings live under `claudeTracker.*`:
 - `claudeTracker.notifications` — enable/disable usage threshold notifications (default `true`)
 - `claudeTracker.notificationThresholds` — `number[]` of percentages (1–100) at which to notify (default `[75, 90]`)
 - `claudeTracker.showServiceStatus` — show/hide the service status row in the tooltip and suppress status-change notifications (default `true`)
+
+## Dependency updates (`.github/dependabot.yml`)
+
+Dependabot checks two ecosystems weekly, with a 7-day cooldown on newly published versions:
+
+- **`npm`** (covers pnpm via `pnpm-lock.yaml`) — minor and patch bumps are grouped into one PR; each major bump gets its own PR.
+- **`github-actions`** — all action bumps are grouped into one PR. Every `uses:` is pinned to a full commit SHA with a trailing `# vX.Y.Z` comment; Dependabot updates both together, so keep the comment when editing by hand.
+
+`@types/vscode` is **ignored on purpose**. `vsce package` fails when the declared `@types/vscode` range is newer than `engines.vscode` (`^1.80.0`), and Dependabot would raise it to the latest version. Raise both together by hand when the minimum VS Code version changes.
+
+Dependabot's pnpm 11 support depends on `pnpm-lock.yaml` staying a **single YAML document**. Adding a `packageManager` field to `package.json` makes pnpm 11 write a multi-document lockfile, and GitHub's dependency graph then reads only the first document, which silently drops the Dependabot security alerts.
+
+No workflow runs on pull requests, so Dependabot PRs are not built or linted in CI — check them locally (`pnpm install && pnpm run compile && pnpm run lint`) before merging.
