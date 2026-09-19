@@ -301,6 +301,8 @@ Dependabot checks two ecosystems weekly, with a 7-day cooldown on newly publishe
 
 `@types/vscode` is **ignored on purpose**. `vsce package` fails when the declared `@types/vscode` range is newer than `engines.vscode` (`^1.80.0`), and Dependabot would raise it to the latest version. Raise both together by hand when the minimum VS Code version changes.
 
+**`typescript` is pinned to exactly `5.5.4`, and Dependabot ignores its major and minor bumps.** 5.5.4 is the last release inside typescript-eslint 7.18's supported range (`>=4.7.4 <5.6.0`). TypeScript 7 is the native (Go) compiler: `require("typescript")` exports only `version` / `versionMajorMinor`, with no JS compiler API. typescript-eslint (through `ts-api-utils`) reads `ts.TypeFlags` on load, so on TS 7 `pnpm run lint` crashes with `Cannot read properties of undefined (reading 'Intrinsic')`. `pnpm run compile` still works, which hides the breakage. Upgrading typescript-eslint by itself does not fix it. Bump `typescript` and typescript-eslint together by hand.
+
 Dependabot's pnpm 11 support depends on `pnpm-lock.yaml` staying a **single YAML document**. Adding a `packageManager` field to `package.json` makes pnpm 11 write a multi-document lockfile, and GitHub's dependency graph then reads only the first document, which silently drops the Dependabot security alerts.
 
 No workflow runs on pull requests, so Dependabot PRs are not built or linted in CI — check them locally (`pnpm install && pnpm run compile && pnpm run lint`) before merging.

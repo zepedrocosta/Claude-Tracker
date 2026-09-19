@@ -2,7 +2,7 @@
   "name": "claude-tracker",
   "displayName": "Claude Tracker",
   "description": "VS Code extension to track everything Claude related",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "publisher": "josecosta",
   "repository": {
     "type": "git",
@@ -110,6 +110,6 @@
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.1",
     "fantasticon": "^4.1.0",
-    "typescript": "^7.0.2"
+    "typescript": "5.5.4"
   }
 }

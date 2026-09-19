@@ -18,6 +18,14 @@ updates:
       # vsce refuses to package when @types/vscode is newer than engines.vscode
       # (^1.80.0). Bump both together by hand when raising the minimum VS Code.
       - dependency-name: "@types/vscode"
+      # TypeScript 7 (the native Go compiler) drops the JS compiler API that
+      # typescript-eslint loads, so `pnpm run lint` crashes. TypeScript is pinned
+      # to 5.5.4, the last release inside typescript-eslint 7.18's supported
+      # range (<5.6.0). Bump it by hand together with typescript-eslint.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   - package-ecosystem: "github-actions"
     directory: "/"
